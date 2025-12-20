@@ -119,6 +119,18 @@ export default function SPSODashboard() {
             </Card>
           </Link>
 
+          <Link href="/spso/students">
+            <Card className="cursor-pointer transition-shadow hover:shadow-md">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-indigo-600" />
+                  Quản lý sinh viên
+                </CardTitle>
+                <CardDescription>Xem thông tin sinh viên</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
           <Link href="/spso/reports">
             <Card className="cursor-pointer transition-shadow hover:shadow-md">
               <CardHeader>

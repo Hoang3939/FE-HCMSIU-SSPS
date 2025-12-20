@@ -14,26 +14,26 @@ export default function ReportsPage() {
   const [reportType, setReportType] = useState<"monthly" | "yearly">("monthly")
   const [selectedPeriod, setSelectedPeriod] = useState("2024-12")
 
-  // Mock data
+  // Mock data with page size breakdown
   const monthlyData = [
-    { month: "Tháng 1", prints: 4500, pages: 12500, students: 3200 },
-    { month: "Tháng 2", prints: 5200, pages: 14500, students: 3500 },
-    { month: "Tháng 3", prints: 4800, pages: 13200, students: 3300 },
-    { month: "Tháng 4", prints: 6100, pages: 16800, students: 3800 },
-    { month: "Tháng 5", prints: 5800, pages: 16200, students: 3700 },
-    { month: "Tháng 6", prints: 5500, pages: 15200, students: 3600 },
-    { month: "Tháng 7", prints: 4200, pages: 11800, students: 3000 },
-    { month: "Tháng 8", prints: 3800, pages: 10500, students: 2800 },
-    { month: "Tháng 9", prints: 4900, pages: 13500, students: 3400 },
-    { month: "Tháng 10", prints: 5300, pages: 14800, students: 3600 },
-    { month: "Tháng 11", prints: 5600, pages: 15500, students: 3700 },
-    { month: "Tháng 12", prints: 6200, pages: 17200, students: 3900 },
+    { month: "Tháng 1", prints: 4500, pages: 12500, pagesA4: 11000, pagesA3: 750, students: 3200 },
+    { month: "Tháng 2", prints: 5200, pages: 14500, pagesA4: 12800, pagesA3: 850, students: 3500 },
+    { month: "Tháng 3", prints: 4800, pages: 13200, pagesA4: 11600, pagesA3: 800, students: 3300 },
+    { month: "Tháng 4", prints: 6100, pages: 16800, pagesA4: 14800, pagesA3: 1000, students: 3800 },
+    { month: "Tháng 5", prints: 5800, pages: 16200, pagesA4: 14200, pagesA3: 1000, students: 3700 },
+    { month: "Tháng 6", prints: 5500, pages: 15200, pagesA4: 13400, pagesA3: 900, students: 3600 },
+    { month: "Tháng 7", prints: 4200, pages: 11800, pagesA4: 10400, pagesA3: 700, students: 3000 },
+    { month: "Tháng 8", prints: 3800, pages: 10500, pagesA4: 9300, pagesA3: 600, students: 2800 },
+    { month: "Tháng 9", prints: 4900, pages: 13500, pagesA4: 11900, pagesA3: 800, students: 3400 },
+    { month: "Tháng 10", prints: 5300, pages: 14800, pagesA4: 13000, pagesA3: 900, students: 3600 },
+    { month: "Tháng 11", prints: 5600, pages: 15500, pagesA4: 13600, pagesA3: 950, students: 3700 },
+    { month: "Tháng 12", prints: 6200, pages: 17200, pagesA4: 15100, pagesA3: 1050, students: 3900 },
   ]
 
   const yearlyData = [
-    { year: "2022", prints: 55000, pages: 152000, students: 8500 },
-    { year: "2023", prints: 62000, pages: 172000, students: 9200 },
-    { year: "2024", prints: 65000, pages: 180000, students: 10000 },
+    { year: "2022", prints: 55000, pages: 152000, pagesA4: 134000, pagesA3: 9000, students: 8500 },
+    { year: "2023", prints: 62000, pages: 172000, pagesA4: 151000, pagesA3: 10500, students: 9200 },
+    { year: "2024", prints: 65000, pages: 180000, pagesA4: 158000, pagesA3: 11000, students: 10000 },
   ]
 
   const printerUsageData = [
@@ -101,7 +101,7 @@ export default function ReportsPage() {
 
         {/* Summary Cards */}
         {currentReport && (
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Tổng số lần in</CardTitle>
@@ -112,15 +112,41 @@ export default function ReportsPage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Tổng số trang</CardTitle>
+                <CardTitle className="text-sm font-medium">Tổng số trang (A4)</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{currentReport.pages.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  A4: {currentReport.pagesA4?.toLocaleString() || 0} | A3: {currentReport.pagesA3?.toLocaleString() || 0}
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Số sinh viên sử dụng</CardTitle>
+                <CardTitle className="text-sm font-medium">Trang A4</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {currentReport.pagesA4?.toLocaleString() || 0}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Trang A3</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {currentReport.pagesA3?.toLocaleString() || 0}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  (Tương đương {(currentReport.pagesA3 || 0) * 2} trang A4)
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Số sinh viên</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{currentReport.students.toLocaleString()}</div>
@@ -151,7 +177,8 @@ export default function ReportsPage() {
                   <Tooltip />
                   <Legend />
                   <Bar dataKey="prints" fill="#4f46e5" name="Số lần in" />
-                  <Bar dataKey="pages" fill="#10b981" name="Số trang" />
+                  <Bar dataKey="pagesA4" fill="#3b82f6" name="Trang A4" />
+                  <Bar dataKey="pagesA3" fill="#10b981" name="Trang A3" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>

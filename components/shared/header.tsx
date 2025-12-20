@@ -32,6 +32,7 @@ export function Header({ userRole = "student", balance = 50, userName = "Nguyễ
   const spsoNav = [
     { href: "/spso/dashboard", label: "Trang chủ" },
     { href: "/spso/history", label: "Lịch sử in" },
+    { href: "/spso/students", label: "Quản lý sinh viên" },
     { href: "/spso/printers", label: "Quản lý máy in" },
     { href: "/spso/config", label: "Cấu hình hệ thống" },
     { href: "/spso/reports", label: "Báo cáo" },

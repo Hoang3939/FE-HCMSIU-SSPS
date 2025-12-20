@@ -114,6 +114,24 @@ export default function SPSOHistoryPage() {
 
   const printers = Array.from(new Set(printRecords.map((r) => ({ id: r.printerId, name: r.printer }))))
 
+  // Calculate summary statistics
+  const summary = filteredRecords.reduce(
+    (acc, record) => {
+      if (record.status === "completed") {
+        acc.totalJobs += 1
+        if (record.pageSize === "A4") {
+          acc.a4Pages += record.pages
+          acc.totalPagesA4 += record.pages
+        } else {
+          acc.a3Pages += record.pages
+          acc.totalPagesA4 += record.pages * 2 // A3 = 2 A4
+        }
+      }
+      return acc
+    },
+    { totalJobs: 0, a4Pages: 0, a3Pages: 0, totalPagesA4: 0 }
+  )
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header userRole="spso" userName="Admin SPSO" />
@@ -205,6 +223,48 @@ export default function SPSOHistoryPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Summary Statistics */}
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Tổng số lần in</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summary.totalJobs}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Tổng trang (A4)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summary.totalPagesA4}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                A4: {summary.a4Pages} | A3: {summary.a3Pages} (tương đương {summary.a3Pages * 2} A4)
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Trang A4</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{summary.a4Pages}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Trang A3</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{summary.a3Pages}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                = {summary.a3Pages * 2} trang A4
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Print History Table */}
         <Card>
