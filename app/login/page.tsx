@@ -7,21 +7,55 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
+import { authAPI } from "@/lib/api/auth-api"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const { toast } = useToast()
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Simulate SSO authentication
-    // In real app, this would redirect to HCMSIU SSO
-    console.log("Login:", { email, password })
-    // Redirect based on role (for demo, default to student)
-    router.push("/dashboard")
+    setError(null)
+    setLoading(true)
+
+    try {
+      // Gọi API đăng nhập
+      const response = await authAPI.login({
+        username: username.trim(),
+        password,
+      })
+
+      // Hiển thị thông báo thành công
+      toast({
+        title: "Đăng nhập thành công",
+        description: `Chào mừng ${response.user.username}!`,
+      })
+
+      // Redirect dựa trên role
+      const role = response.user.role
+      if (role === "ADMIN" || role === "SPSO") {
+        router.push("/admin/dashboard")
+      } else {
+        router.push("/dashboard")
+      }
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || "Đăng nhập thất bại. Vui lòng thử lại."
+      setError(errorMessage)
+      toast({
+        title: "Đăng nhập thất bại",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -68,16 +102,26 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
+            {error && (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-4 flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-800">{error}</p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <Label htmlFor="email">Email hoặc mã sinh viên</Label>
+              <Label htmlFor="username">Tên đăng nhập hoặc email</Label>
               <Input
-                id="email"
+                id="username"
                 type="text"
-                placeholder="Nhập email hoặc mã sinh viên"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Nhập tên đăng nhập hoặc email"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="h-12 bg-purple-50 border-purple-100 placeholder:text-purple-300"
                 required
+                disabled={loading}
               />
             </div>
 
@@ -92,6 +136,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="h-12 bg-purple-50 border-purple-100 pr-12 placeholder:text-purple-300"
                   required
+                  disabled={loading}
                 />
                 <button
                   type="button"
@@ -109,8 +154,19 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            <Button type="submit" className="h-12 w-full bg-indigo-600 text-white hover:bg-indigo-700">
-              Đăng nhập qua SSO
+            <Button 
+              type="submit" 
+              className="h-12 w-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang đăng nhập...
+                </>
+              ) : (
+                "Đăng nhập"
+              )}
             </Button>
 
             <div className="text-center text-sm text-gray-500">

@@ -319,7 +319,7 @@ export default function StudentsManagementPage() {
                 </div>
 
                 <div className="flex justify-end">
-                  <Link href={`/spso/history?studentId=${selectedStudent.id}`}>
+                  <Link href={`/admin/history?studentId=${selectedStudent.id}`}>
                     <Button className="bg-indigo-600 hover:bg-indigo-700">
                       Xem chi tiết đầy đủ
                     </Button>
