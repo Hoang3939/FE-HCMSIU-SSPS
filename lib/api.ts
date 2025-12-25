@@ -1,10 +1,33 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-// Get student ID from localStorage (demo mode - không dùng login)
-function getStudentId(): string | null {
+// TEMPORARY: Auto-login for testing
+let autoLoginDone = false;
+
+// Get auth token from localStorage
+function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
-  // Lấy từ localStorage hoặc dùng default cho demo
-  return localStorage.getItem('student-id') || '87338eec-dd46-49ae-a59a-f3d61cc16915'; // student001 default
+  
+  // TEMPORARY: Auto-login for testing (async, don't wait)
+  if (!autoLoginDone) {
+    autoLoginDone = true;
+    // Try to auto-login in background
+    fetch(`${API_BASE_URL}/api/test/auto-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+        }
+      })
+      .catch(() => {
+        // Ignore errors - backend bypasses auth anyway
+      });
+  }
+  
+  return localStorage.getItem('token');
 }
 
 // API request helper
@@ -12,7 +35,7 @@ async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const studentId = getStudentId();
+  const token = getAuthToken();
   const url = `${API_BASE_URL}${endpoint}`;
 
   const headers: HeadersInit = {
@@ -20,9 +43,8 @@ async function apiRequest<T>(
     ...options.headers,
   };
 
-  // Gửi header x-student-id thay vì Authorization
-  if (studentId) {
-    headers['x-student-id'] = studentId;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   const response = await fetch(url, {
@@ -49,18 +71,17 @@ export async function uploadDocument(file: File): Promise<{
     uploadedAt: string;
   };
 }> {
-  const studentId = getStudentId();
-  if (!studentId) {
-    throw new Error('Thiếu Student ID. Vui lòng cung cấp Student ID.');
-  }
-
+  // TEMPORARY: Backend bypasses auth, so we don't need token
+  const token = getAuthToken();
+  
   const formData = new FormData();
   formData.append('file', file);
 
   // Don't set Content-Type for FormData - browser will set it with boundary
-  const headers: HeadersInit = {
-    'x-student-id': studentId,
-  };
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   const response = await fetch(`${API_BASE_URL}/api/documents/upload`, {
     method: 'POST',
@@ -112,12 +133,50 @@ export async function createPrintJob(data: {
 
 // Get available printers
 export async function getAvailablePrinters() {
-  return apiRequest('/api/printers/available');
+  // TEMPORARY: Backend bypasses auth
+  const token = getAuthToken();
+  const url = `${API_BASE_URL}/api/printers/available`;
+
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 // Get user balance
 export async function getUserBalance() {
-  return apiRequest<{ balancePages: number }>('/api/student/balance');
+  // TEMPORARY: Backend bypasses auth
+  const token = getAuthToken();
+  const url = `${API_BASE_URL}/api/student/balance`;
+
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 // Login
