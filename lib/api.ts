@@ -1,32 +1,8 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-// TEMPORARY: Auto-login for testing
-let autoLoginDone = false;
-
 // Get auth token from localStorage
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
-  
-  // TEMPORARY: Auto-login for testing (async, don't wait)
-  if (!autoLoginDone) {
-    autoLoginDone = true;
-    // Try to auto-login in background
-    fetch(`${API_BASE_URL}/api/test/auto-login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.token) {
-          localStorage.setItem('token', data.token);
-          localStorage.setItem('user', JSON.stringify(data.user));
-        }
-      })
-      .catch(() => {
-        // Ignore errors - backend bypasses auth anyway
-      });
-  }
-  
   return localStorage.getItem('token');
 }
 
@@ -71,9 +47,11 @@ export async function uploadDocument(file: File): Promise<{
     uploadedAt: string;
   };
 }> {
-  // TEMPORARY: Backend bypasses auth, so we don't need token
   const token = getAuthToken();
-  
+  if (!token) {
+    throw new Error('Chưa đăng nhập');
+  }
+
   const formData = new FormData();
   formData.append('file', file);
 
@@ -133,50 +111,12 @@ export async function createPrintJob(data: {
 
 // Get available printers
 export async function getAvailablePrinters() {
-  // TEMPORARY: Backend bypasses auth
-  const token = getAuthToken();
-  const url = `${API_BASE_URL}/api/printers/available`;
-
-  const headers: HeadersInit = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Unknown error' }));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
-  }
-
-  return response.json();
+  return apiRequest('/api/printers/available');
 }
 
 // Get user balance
 export async function getUserBalance() {
-  // TEMPORARY: Backend bypasses auth
-  const token = getAuthToken();
-  const url = `${API_BASE_URL}/api/student/balance`;
-
-  const headers: HeadersInit = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Unknown error' }));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
-  }
-
-  return response.json();
+  return apiRequest<{ balancePages: number }>('/api/student/balance');
 }
 
 // Login
