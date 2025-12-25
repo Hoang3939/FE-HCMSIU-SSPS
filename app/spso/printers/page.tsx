@@ -30,6 +30,7 @@ interface PrinterFormData {
   Status: "AVAILABLE" | "BUSY" | "OFFLINE" | "MAINTENANCE" | "ERROR"
   IPAddress: string
   CUPSPrinterName: string
+  LocationID: string
   IsActive: boolean
 }
 
@@ -49,6 +50,7 @@ export default function PrinterManagementPage() {
     Status: "OFFLINE",
     IPAddress: "",
     CUPSPrinterName: "",
+    LocationID: "",
     IsActive: true,
   })
 
@@ -86,6 +88,7 @@ export default function PrinterManagementPage() {
       Status: "OFFLINE",
       IPAddress: "",
       CUPSPrinterName: "",
+      LocationID: "",
       IsActive: true,
     })
     setIsDialogOpen(true)
@@ -101,6 +104,7 @@ export default function PrinterManagementPage() {
       Status: printer.Status,
       IPAddress: printer.IPAddress || "",
       CUPSPrinterName: printer.CUPSPrinterName || "",
+      LocationID: printer.LocationID || "",
       IsActive: printer.IsActive,
     })
     setIsDialogOpen(true)
@@ -128,6 +132,7 @@ export default function PrinterManagementPage() {
           Status: formData.Status,
           IPAddress: formData.IPAddress || undefined,
           CUPSPrinterName: formData.CUPSPrinterName || undefined,
+          LocationID: formData.LocationID.trim() || null,
           IsActive: formData.IsActive,
         })
         setPrinters(printers.map((p) => (p.PrinterID === editingPrinter.PrinterID ? updated : p)))
@@ -145,6 +150,7 @@ export default function PrinterManagementPage() {
           Status: formData.Status,
           IPAddress: formData.IPAddress || undefined,
           CUPSPrinterName: formData.CUPSPrinterName || undefined,
+          LocationID: formData.LocationID.trim() || undefined,
           IsActive: formData.IsActive,
         })
         setPrinters([...printers, created])
@@ -309,6 +315,15 @@ export default function PrinterManagementPage() {
                     value={formData.CUPSPrinterName}
                     onChange={(e) => setFormData({ ...formData, CUPSPrinterName: e.target.value })}
                     placeholder="printer-h6-101"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="locationID">ID Vị trí (Location ID)</Label>
+                  <Input
+                    id="locationID"
+                    value={formData.LocationID}
+                    onChange={(e) => setFormData({ ...formData, LocationID: e.target.value })}
+                    placeholder="UUID của vị trí (tùy chọn)"
                   />
                 </div>
                 <div className="space-y-2">
