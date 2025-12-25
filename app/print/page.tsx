@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense, useEffect } from "react"
+import { useState, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChevronDown, FileText, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { createPrintJob, getAvailablePrinters, getUserBalance, getCurrentUser, login } from "@/lib/api"
+import { createPrintJob, getAvailablePrinters, getUserBalance } from "@/lib/api"
 import { toast } from "sonner"
 
 interface UploadedDocument {
@@ -50,18 +50,6 @@ function PrintConfigContent() {
   const [pagesPerSheetMode, setPagesPerSheetMode] = useState<"preset" | "custom">("preset")
   const [customPagesPerSheet, setCustomPagesPerSheet] = useState(1)
   const [collate, setCollate] = useState(true)
-
-  // TEMPORARY: Auto-login for testing
-  useEffect(() => {
-    const autoLogin = async () => {
-      try {
-        await login('student1', 'student123')
-      } catch (error) {
-        // Ignore errors
-      }
-    }
-    autoLogin()
-  }, [])
 
   // Load data on mount
   useEffect(() => {
