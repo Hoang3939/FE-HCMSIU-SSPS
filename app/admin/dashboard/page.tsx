@@ -83,7 +83,7 @@ export default function SPSODashboard() {
 
         {/* Quick Actions */}
         <div className="mb-6 grid gap-4 sm:mb-8 sm:grid-cols-2 lg:grid-cols-4">
-          <Link href="/spso/history">
+          <Link href="/admin/history">
             <Card className="cursor-pointer transition-shadow hover:shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -95,7 +95,7 @@ export default function SPSODashboard() {
             </Card>
           </Link>
 
-          <Link href="/spso/printers">
+          <Link href="/admin/printers">
             <Card className="cursor-pointer transition-shadow hover:shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -107,7 +107,7 @@ export default function SPSODashboard() {
             </Card>
           </Link>
 
-          <Link href="/spso/config">
+          <Link href="/admin/config">
             <Card className="cursor-pointer transition-shadow hover:shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -119,7 +119,7 @@ export default function SPSODashboard() {
             </Card>
           </Link>
 
-          <Link href="/spso/students">
+          <Link href="/admin/students">
             <Card className="cursor-pointer transition-shadow hover:shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -131,7 +131,7 @@ export default function SPSODashboard() {
             </Card>
           </Link>
 
-          <Link href="/spso/reports">
+          <Link href="/admin/reports">
             <Card className="cursor-pointer transition-shadow hover:shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -152,7 +152,7 @@ export default function SPSODashboard() {
                 <CardTitle>Hoạt động gần đây</CardTitle>
                 <CardDescription>Danh sách các hoạt động in ấn gần đây</CardDescription>
               </div>
-              <Link href="/spso/history">
+              <Link href="/admin/history">
                 <Button variant="outline" size="sm">
                   Xem tất cả
                 </Button>

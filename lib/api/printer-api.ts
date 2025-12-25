@@ -1,4 +1,6 @@
-import { API_BASE_URL, API_ENDPOINTS } from '../api-config';
+import apiClient from './apiClient';
+import { API_ENDPOINTS } from '../api-config';
+import type { ApiResponse, PaginatedApiResponse } from '../types/api.types';
 
 /**
  * Types từ Backend API
@@ -64,46 +66,9 @@ export interface PrinterQueryParams {
 
 /**
  * API Client cho Printer Management
+ * Sử dụng apiClient với Axios và JWT interceptors
  */
 class PrinterAPI {
-  private baseURL: string;
-
-  constructor() {
-    this.baseURL = API_BASE_URL;
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${this.baseURL}${endpoint}`;
-    
-    const config: RequestInit = {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    };
-
-    try {
-      const response = await fetch(url, config);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || errorData.error || `HTTP error! status: ${response.status}`
-        );
-      }
-
-      return await response.json();
-    } catch (error) {
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Unknown error occurred');
-    }
-  }
 
   /**
    * Lấy danh sách máy in với phân trang và filter
@@ -122,43 +87,78 @@ class PrinterAPI {
       ? `${API_ENDPOINTS.printers.list}?${queryString}`
       : API_ENDPOINTS.printers.list;
 
-    return this.request<PaginatedResponse<Printer>>(endpoint);
+    const response = await apiClient.get<PaginatedApiResponse<Printer>>(endpoint);
+    
+    if (response.data.success && response.data.data && response.data.pagination) {
+      return {
+        data: response.data.data,
+        pagination: response.data.pagination,
+      };
+    }
+
+    throw new Error(response.data.message || 'Không thể lấy danh sách máy in');
   }
 
   /**
    * Lấy chi tiết một máy in theo ID
    */
   async getPrinterById(id: string): Promise<Printer> {
-    return this.request<Printer>(API_ENDPOINTS.printers.detail(id));
+    const response = await apiClient.get<ApiResponse<Printer>>(
+      API_ENDPOINTS.printers.detail(id)
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Không thể lấy thông tin máy in');
   }
 
   /**
    * Tạo máy in mới
    */
   async createPrinter(data: CreatePrinterDto): Promise<Printer> {
-    return this.request<Printer>(API_ENDPOINTS.printers.create, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    const response = await apiClient.post<ApiResponse<Printer>>(
+      API_ENDPOINTS.printers.create,
+      data
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Không thể tạo máy in');
   }
 
   /**
    * Cập nhật thông tin máy in
    */
   async updatePrinter(id: string, data: UpdatePrinterDto): Promise<Printer> {
-    return this.request<Printer>(API_ENDPOINTS.printers.update(id), {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
+    const response = await apiClient.put<ApiResponse<Printer>>(
+      API_ENDPOINTS.printers.update(id),
+      data
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Không thể cập nhật máy in');
   }
 
   /**
    * Xóa máy in
    */
   async deletePrinter(id: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>(API_ENDPOINTS.printers.delete(id), {
-      method: 'DELETE',
-    });
+    const response = await apiClient.delete<ApiResponse<{ message: string }>>(
+      API_ENDPOINTS.printers.delete(id)
+    );
+
+    if (response.data.success) {
+      return { message: response.data.message || 'Xóa máy in thành công' };
+    }
+
+    throw new Error(response.data.message || 'Không thể xóa máy in');
   }
 }
 
