@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
 import { FileText, Upload, X, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { uploadDocument, login } from "@/lib/api"
+import { uploadDocument } from "@/lib/api"
 import { toast } from "sonner"
 
 interface UploadedDocument {
@@ -23,18 +23,6 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<{ [key: number]: number }>({})
   const router = useRouter()
-
-  // TEMPORARY: Auto-login for testing
-  useEffect(() => {
-    const autoLogin = async () => {
-      try {
-        await login('student1', 'student123')
-      } catch (error) {
-        // Ignore errors
-      }
-    }
-    autoLogin()
-  }, [])
 
   const allowedTypes = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt"]
 
