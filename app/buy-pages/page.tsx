@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { getUserBalance } from "@/lib/api"
 import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,6 +16,7 @@ interface PricingTier {
 
 export default function BuyPagesPage() {
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null)
+  const [currentBalance, setCurrentBalance] = useState(0)
 
   const pricingTiers: PricingTier[] = [
     { pages: 10, price: 5000, pricePerPage: 500 },
@@ -23,7 +25,17 @@ export default function BuyPagesPage() {
     { pages: 200, price: 60000, pricePerPage: 300 },
   ]
 
-  const currentBalance = 50
+  useEffect(() => {
+    const loadBalance = async () => {
+      try {
+        const balanceData = await getUserBalance()
+        setCurrentBalance(balanceData.balancePages)
+      } catch (error) {
+        console.error('Error loading balance:', error)
+      }
+    }
+    loadBalance()
+  }, [])
 
   const handlePayment = () => {
     if (selectedTier) {

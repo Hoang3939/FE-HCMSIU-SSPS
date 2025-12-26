@@ -1,9 +1,10 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-// Get auth token from localStorage
-function getAuthToken(): string | null {
+// Get student ID from localStorage (demo mode - không dùng login)
+function getStudentId(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token');
+  // Lấy từ localStorage hoặc dùng default cho demo
+  return localStorage.getItem('student-id') || '87338eec-dd46-49ae-a59a-f3d61cc16915'; // student001 default
 }
 
 // API request helper
@@ -11,7 +12,7 @@ async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = getAuthToken();
+  const studentId = getStudentId();
   const url = `${API_BASE_URL}${endpoint}`;
 
   const headers: HeadersInit = {
@@ -19,8 +20,9 @@ async function apiRequest<T>(
     ...options.headers,
   };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  // Gửi header x-student-id thay vì Authorization
+  if (studentId) {
+    headers['x-student-id'] = studentId;
   }
 
   const response = await fetch(url, {
@@ -47,19 +49,18 @@ export async function uploadDocument(file: File): Promise<{
     uploadedAt: string;
   };
 }> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error('Chưa đăng nhập');
+  const studentId = getStudentId();
+  if (!studentId) {
+    throw new Error('Thiếu Student ID. Vui lòng cung cấp Student ID.');
   }
 
   const formData = new FormData();
   formData.append('file', file);
 
   // Don't set Content-Type for FormData - browser will set it with boundary
-  const headers: HeadersInit = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  const headers: HeadersInit = {
+    'x-student-id': studentId,
+  };
 
   const response = await fetch(`${API_BASE_URL}/api/documents/upload`, {
     method: 'POST',
