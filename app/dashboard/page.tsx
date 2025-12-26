@@ -1,13 +1,27 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileText, Printer, History, CreditCard, TrendingUp } from "lucide-react"
 import Link from "next/link"
+import { getUserBalance } from "@/lib/api"
 
 export default function StudentDashboard() {
-  const balance = 50
+  const [balance, setBalance] = useState(0)
+
+  useEffect(() => {
+    const loadBalance = async () => {
+      try {
+        const balanceData = await getUserBalance()
+        setBalance(balanceData.balancePages)
+      } catch (error) {
+        console.error('Error loading balance:', error)
+      }
+    }
+    loadBalance()
+  }, [])
   const recentPrints = [
     { id: "1", fileName: "Báo cáo đồ án.pdf", date: "Hôm nay", pages: 20 },
     { id: "2", fileName: "Bài tập lớn.docx", date: "Hôm qua", pages: 15 },
