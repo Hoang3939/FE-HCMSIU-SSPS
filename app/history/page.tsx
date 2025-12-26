@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { getUserBalance } from "@/lib/api"
 import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +29,19 @@ export default function PrintHistoryPage() {
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const [selectedPrinter, setSelectedPrinter] = useState("all")
+  const [balance, setBalance] = useState(0)
+
+  useEffect(() => {
+    const loadBalance = async () => {
+      try {
+        const balanceData = await getUserBalance()
+        setBalance(balanceData.balancePages)
+      } catch (error) {
+        console.error('Error loading balance:', error)
+      }
+    }
+    loadBalance()
+  }, [])
 
   const printRecords: PrintRecord[] = [
     {
@@ -104,7 +118,7 @@ export default function PrintHistoryPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header userRole="student" balance={50} userName="Nguyễn Văn A" />
+      <Header userRole="student" balance={balance} userName="Nguyễn Văn A" />
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-12">
         <div className="mb-6 text-center sm:mb-8">
