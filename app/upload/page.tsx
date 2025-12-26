@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
 import { FileText, Upload, X, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { uploadDocument } from "@/lib/api"
+import { uploadDocument, getUserBalance } from "@/lib/api"
 import { toast } from "sonner"
 
 interface UploadedDocument {
@@ -22,7 +22,21 @@ export default function UploadPage() {
   const [dragActive, setDragActive] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<{ [key: number]: number }>({})
+  const [balance, setBalance] = useState(0)
   const router = useRouter()
+
+  // Load balance on mount
+  useEffect(() => {
+    const loadBalance = async () => {
+      try {
+        const balanceData = await getUserBalance()
+        setBalance(balanceData.balancePages)
+      } catch (error) {
+        console.error('Error loading balance:', error)
+      }
+    }
+    loadBalance()
+  }, [])
 
   const allowedTypes = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt"]
 

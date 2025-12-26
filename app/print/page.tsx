@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, Suspense, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
@@ -11,8 +11,9 @@ import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChevronDown, FileText, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { createPrintJob, getAvailablePrinters, getUserBalance } from "@/lib/api"
+import { createPrintJob, getAvailablePrinters, getUserBalance, getCurrentUser, getDocument } from "@/lib/api"
 import { toast } from "sonner"
+import { DocumentPreview } from "@/components/document-preview"
 
 interface UploadedDocument {
   id: string
@@ -59,10 +60,37 @@ function PrintConfigContent() {
         const storedDocs = sessionStorage.getItem('uploadedDocuments')
         if (storedDocs) {
           const docs = JSON.parse(storedDocs) as UploadedDocument[]
-          setUploadedDocs(docs)
-          if (docs.length > 0) {
-            setSelectedDocId(docs[0].id)
+          
+          // Refresh document info from API to get accurate page count
+          const refreshedDocs: UploadedDocument[] = []
+          for (const doc of docs) {
+            try {
+              // Call API to get latest document info (with accurate page count)
+              const docInfo = await getDocument(doc.id) as {
+                FileName?: string;
+                detectedPageCount?: number;
+                FileSize?: number;
+              }
+              refreshedDocs.push({
+                id: doc.id,
+                fileName: docInfo.FileName || doc.fileName,
+                pageCount: docInfo.detectedPageCount || doc.pageCount, // Use accurate count from backend
+                fileSize: docInfo.FileSize || doc.fileSize,
+              })
+            } catch (error) {
+              console.warn(`Failed to refresh doc ${doc.id}, using cached data:`, error)
+              // Fallback to cached data if API call fails
+              refreshedDocs.push(doc)
+            }
           }
+          
+          setUploadedDocs(refreshedDocs)
+          if (refreshedDocs.length > 0) {
+            setSelectedDocId(refreshedDocs[0].id)
+          }
+          
+          // Update sessionStorage with refreshed data
+          sessionStorage.setItem('uploadedDocuments', JSON.stringify(refreshedDocs))
         } else {
           toast.error('Không có tài liệu nào được upload. Vui lòng quay lại trang upload.')
           router.push('/upload')
@@ -70,8 +98,8 @@ function PrintConfigContent() {
         }
 
         // Load printers
-        const printersData = await getAvailablePrinters()
-        setPrinters(printersData.filter(p => p.isActive))
+        const printersData = await getAvailablePrinters() as Array<{ id: string; name: string; location: string; isActive: boolean }>
+        setPrinters(printersData.filter((p: { isActive: boolean }) => p.isActive))
 
         // Load balance
         const balanceData = await getUserBalance()
@@ -184,8 +212,24 @@ function PrintConfigContent() {
           <p className="text-gray-600">Thiết lập các tùy chọn in cho tài liệu của bạn</p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-          {/* Document Selection */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+          {/* Preview Panel */}
+          {selectedDoc && (
+            <DocumentPreview
+              documentId={selectedDoc.id}
+              fileName={selectedDoc.fileName}
+              pageCount={selectedDoc.pageCount}
+              paperSize={paperSize}
+              orientation={orientation}
+              pageRange={pageRange === "custom" ? customPageRange : pageRange}
+              copies={copies}
+              doubleSided={doubleSided}
+              pagesPerSheet={pagesPerSheetMode === "custom" ? customPagesPerSheet : pagesPerSheet}
+            />
+          )}
+
+          {/* Document Selection & Configuration */}
+          <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium text-gray-700">Tài liệu đã upload ({uploadedDocs.length} tệp)</CardTitle>
@@ -211,32 +255,6 @@ function PrintConfigContent() {
                     </div>
                   </div>
                 ))}
-              </div>
-              {selectedDoc && (
-                <div className="rounded-lg bg-gray-100 p-4">
-                  <div className="text-center">
-                    <FileText className="mx-auto mb-2 h-12 w-12 text-gray-400" />
-                    <p className="font-medium">{selectedDoc.fileName}</p>
-                    <p className="text-sm text-gray-500">{selectedDoc.pageCount} trang</p>
-                  </div>
-                </div>
-              )}
-              <div className="mt-4 flex items-center justify-center gap-4">
-                <Button variant="outline" size="sm">
-                  Trước
-                </Button>
-                <div className="flex items-center gap-2">
-                  <Button variant="default" size="sm" className="bg-indigo-600">
-                    1
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    2
-                  </Button>
-                  <span className="text-sm text-gray-500">...</span>
-                  <Button variant="outline" size="sm">
-                    Sau
-                  </Button>
-                </div>
               </div>
             </CardContent>
           </Card>
