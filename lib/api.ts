@@ -15,9 +15,9 @@ async function apiRequest<T>(
   const studentId = getStudentId();
   const url = `${API_BASE_URL}${endpoint}`;
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string> || {}),
   };
 
   // Gửi header x-student-id thay vì Authorization
@@ -76,7 +76,25 @@ export async function uploadDocument(file: File): Promise<{
     throw new Error(error.message || `HTTP error! status: ${response.status}`);
   }
 
-  return response.json();
+  const apiResponse = await response.json();
+
+  // Backend returns { success: true, message: "...", data: { id, originalFileName, ... } }
+  // Map to expected format: { message: "...", document: { id, originalFileName, ... } }
+  if (apiResponse.success && apiResponse.data) {
+    return {
+      message: apiResponse.message || 'Upload thành công',
+      document: {
+        id: apiResponse.data.id,
+        originalFileName: apiResponse.data.originalFileName,
+        detectedPageCount: apiResponse.data.detectedPageCount,
+        fileSize: apiResponse.data.fileSize,
+        uploadedAt: apiResponse.data.uploadedAt,
+      },
+    };
+  }
+
+  // Fallback if structure is different
+  throw new Error('Unexpected response format from server');
 }
 
 // Get document by ID
@@ -117,7 +135,13 @@ export async function getAvailablePrinters() {
 
 // Get user balance
 export async function getUserBalance() {
-  return apiRequest<{ balancePages: number }>('/api/student/balance');
+  const response = await apiRequest<{ success: boolean; data: { balancePages: number } }>('/api/student/balance');
+  // Backend returns { success: true, data: { balancePages: number } }
+  if (response.success && response.data) {
+    return { balancePages: response.data.balancePages };
+  }
+  // Fallback if structure is different
+  return response as any;
 }
 
 // Login
@@ -136,7 +160,7 @@ export async function login(username: string, password: string) {
   }
 
   const data = await response.json();
-  
+
   // Save token to localStorage
   if (typeof window !== 'undefined' && data.token) {
     localStorage.setItem('token', data.token);
