@@ -27,26 +27,36 @@ class AuthAPI {
     // Clear auth state cũ trước khi login
     useAuthStore.getState().clearAuth();
     
-    // Sử dụng axios trực tiếp để tránh interceptor thêm Authorization header cũ
-    const axios = (await import('axios')).default;
-    const response = await axios.post<ApiResponse<LoginResponse>>(
+    // Sử dụng fetch trực tiếp để tránh interceptor thêm Authorization header cũ
+    const response = await fetch(
       `${API_BASE_URL}/api${API_ENDPOINTS.auth.login}`,
-      credentials,
       {
-        withCredentials: true,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(credentials),
       }
     );
 
-    if (response.data.success && response.data.data) {
-      const { token, user } = response.data.data;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Đăng nhập thất bại' }));
+      throw new Error(errorData.message || 'Đăng nhập thất bại');
+    }
+
+    const data: ApiResponse<LoginResponse> = await response.json();
+
+    if (data.success && data.data) {
+      const { token, user } = data.data;
       
       // Lưu accessToken và user vào store
       useAuthStore.getState().setAuth(token, user);
       
-      return response.data.data;
+      return data.data;
     }
 
-    throw new Error(response.data.message || 'Đăng nhập thất bại');
+    throw new Error(data.message || 'Đăng nhập thất bại');
   }
 
   /**
@@ -62,13 +72,16 @@ class AuthAPI {
     
     try {
       // Gọi API logout để xóa refresh token cookie ở server
-      // Sử dụng axios trực tiếp để tránh interceptor thêm Authorization header
-      const axios = (await import('axios')).default;
-      await axios.post(
+      // Sử dụng fetch trực tiếp để tránh interceptor thêm Authorization header
+      await fetch(
         `${API_BASE_URL}/api${API_ENDPOINTS.auth.logout}`,
-        {},
         {
-          withCredentials: true,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({}),
         }
       );
     } catch (error) {
