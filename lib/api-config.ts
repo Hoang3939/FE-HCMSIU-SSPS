@@ -16,5 +16,12 @@ export const API_ENDPOINTS = {
     update: (id: string) => `/admin/printers/${id}`,
     delete: (id: string) => `/admin/printers/${id}`,
   },
+  admin: {
+    dashboard: {
+      stats: '/admin/dashboard/stats',
+      recentActivities: '/admin/dashboard/recent-activities',
+    },
+  },
 } as const;
+
 

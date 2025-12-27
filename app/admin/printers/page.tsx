@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -225,38 +224,25 @@ export default function PrinterManagementPage() {
     return statusMap[status] || status
   }
 
-  const getStatusColor = (status: string) => {
-    const colorMap: Record<string, string> = {
-      AVAILABLE: "bg-green-50 text-green-600",
-      BUSY: "bg-yellow-50 text-yellow-600",
-      OFFLINE: "bg-gray-100 text-gray-600",
-      MAINTENANCE: "bg-blue-50 text-blue-600",
-      ERROR: "bg-red-50 text-red-600",
-    }
-    return colorMap[status] || "bg-gray-100 text-gray-600"
-  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header userRole="spso" userName="Admin SPSO" />
-
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-12">
-        <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Quản lý máy in</h1>
-            <p className="mt-2 text-gray-600">Thêm, sửa, xóa và quản lý trạng thái máy in</p>
-          </div>
+    <div className="p-6">
+      <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Quản lý máy in</h1>
+          <p className="text-gray-400">Thêm, sửa, xóa và quản lý trạng thái máy in</p>
+        </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={handleAddPrinter} className="bg-indigo-600 hover:bg-indigo-700">
+              <Button onClick={handleAddPrinter} className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white">
                 <Plus className="mr-2 h-4 w-4" />
                 Thêm máy in
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl bg-[#1a1a1a] border-[#2a2a2a] text-white">
               <DialogHeader>
-                <DialogTitle>{editingPrinter ? "Sửa máy in" : "Thêm máy in mới"}</DialogTitle>
-                <DialogDescription>
+                <DialogTitle className="text-white">{editingPrinter ? "Sửa máy in" : "Thêm máy in mới"}</DialogTitle>
+                <DialogDescription className="text-gray-400">
                   {editingPrinter ? "Cập nhật thông tin máy in" : "Điền thông tin máy in mới"}
                 </DialogDescription>
               </DialogHeader>
@@ -363,7 +349,7 @@ export default function PrinterManagementPage() {
                 </Button>
                 <Button 
                   onClick={handleSavePrinter} 
-                  className="bg-indigo-600 hover:bg-indigo-700"
+                  className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white"
                   disabled={saving}
                 >
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -376,9 +362,9 @@ export default function PrinterManagementPage() {
 
         {/* Error Message */}
         {error && (
-          <Card className="mb-6 border-red-200 bg-red-50">
+          <Card className="mb-6 border-red-500 bg-red-900/20 text-white">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-2 text-red-600">
+              <div className="flex items-center gap-2 text-red-400">
                 <AlertCircle className="h-5 w-5" />
                 <span>{error}</span>
               </div>
@@ -389,13 +375,13 @@ export default function PrinterManagementPage() {
         {/* Loading State */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-            <span className="ml-2 text-gray-600">Đang tải danh sách máy in...</span>
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-400">Đang tải danh sách máy in...</span>
           </div>
         ) : printers.length === 0 ? (
-          <Card>
+          <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
             <CardContent className="pt-6">
-              <div className="text-center text-gray-500">
+              <div className="text-center text-gray-400">
                 <Printer className="mx-auto mb-2 h-12 w-12" />
                 <p>Chưa có máy in nào. Hãy thêm máy in mới để bắt đầu.</p>
               </div>
@@ -405,18 +391,18 @@ export default function PrinterManagementPage() {
           /* Printers List */
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {printers.map((printer) => (
-              <Card key={printer.PrinterID}>
+              <Card key={printer.PrinterID} className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100">
-                        <Printer className="h-5 w-5 text-indigo-600" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2a2a2a]">
+                        <Printer className="h-5 w-5 text-gray-400" />
                       </div>
                       <div>
-                        <CardTitle className="text-lg">
+                        <CardTitle className="text-lg text-white">
                           {printer.Name}
                         </CardTitle>
-                        <CardDescription className="mt-1">
+                        <CardDescription className="mt-1 text-gray-400">
                           {printer.Brand && printer.Model
                             ? `${printer.Brand} ${printer.Model}`
                             : printer.Brand || printer.Model || "Không có thông tin"}
@@ -432,33 +418,39 @@ export default function PrinterManagementPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-2 text-sm text-gray-300">
                     {printer.Description && (
                       <div>
-                        <span className="font-medium">Mô tả:</span> {printer.Description}
+                        <span className="font-medium text-white">Mô tả:</span> {printer.Description}
                       </div>
                     )}
                     {printer.IPAddress && (
                       <div>
-                        <span className="font-medium">IP:</span> {printer.IPAddress}
+                        <span className="font-medium text-white">IP:</span> {printer.IPAddress}
                       </div>
                     )}
                     {printer.CUPSPrinterName && (
                       <div>
-                        <span className="font-medium">CUPS:</span> {printer.CUPSPrinterName}
+                        <span className="font-medium text-white">CUPS:</span> {printer.CUPSPrinterName}
                       </div>
                     )}
                     <div className="flex items-center gap-2 pt-2">
                       <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(printer.Status)}`}
+                        className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                          printer.Status === 'AVAILABLE' ? 'bg-green-900/30 text-green-400' :
+                          printer.Status === 'BUSY' ? 'bg-yellow-900/30 text-yellow-400' :
+                          printer.Status === 'OFFLINE' ? 'bg-gray-800 text-gray-400' :
+                          printer.Status === 'MAINTENANCE' ? 'bg-blue-900/30 text-blue-400' :
+                          'bg-red-900/30 text-red-400'
+                        }`}
                       >
                         {getStatusLabel(printer.Status)}
                       </span>
                       <span
                         className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
                           printer.IsActive
-                            ? "bg-green-50 text-green-600"
-                            : "bg-gray-100 text-gray-600"
+                            ? "bg-green-900/30 text-green-400"
+                            : "bg-gray-800 text-gray-400"
                         }`}
                       >
                         {printer.IsActive ? "Hoạt động" : "Tạm dừng"}
@@ -469,7 +461,7 @@ export default function PrinterManagementPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 border-[#2a2a2a] text-gray-300 hover:bg-[#2a2a2a] hover:text-white"
                       onClick={() => handleEditPrinter(printer)}
                     >
                       <Edit className="mr-2 h-4 w-4" />
@@ -478,7 +470,7 @@ export default function PrinterManagementPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 text-red-600 hover:text-red-700"
+                      className="flex-1 border-red-900/50 text-red-400 hover:bg-red-900/20 hover:text-red-300"
                       onClick={() => handleDeletePrinter(printer.PrinterID)}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
@@ -490,7 +482,6 @@ export default function PrinterManagementPage() {
             ))}
           </div>
         )}
-      </main>
     </div>
   )
 }
