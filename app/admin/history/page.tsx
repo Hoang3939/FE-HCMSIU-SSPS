@@ -345,7 +345,6 @@ export default function SPSOHistoryPage() {
             )}
           </CardContent>
         </Card>
-      </main>
     </div>
   )
 }
