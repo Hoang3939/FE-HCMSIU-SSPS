@@ -30,12 +30,12 @@ export function Header({ userRole = "student", balance = 50, userName = "Nguyễ
   ]
 
   const spsoNav = [
-    { href: "/spso/dashboard", label: "Trang chủ" },
-    { href: "/spso/history", label: "Lịch sử in" },
-    { href: "/spso/students", label: "Quản lý sinh viên" },
-    { href: "/spso/printers", label: "Quản lý máy in" },
-    { href: "/spso/config", label: "Cấu hình hệ thống" },
-    { href: "/spso/reports", label: "Báo cáo" },
+    { href: "/admin/dashboard", label: "Trang chủ" },
+    { href: "/admin/history", label: "Lịch sử in" },
+    { href: "/admin/students", label: "Quản lý sinh viên" },
+    { href: "/admin/printers", label: "Quản lý máy in" },
+    { href: "/admin/config", label: "Cấu hình hệ thống" },
+    { href: "/admin/reports", label: "Báo cáo" },
   ]
 
   const navItems = userRole === "student" ? studentNav : spsoNav
@@ -44,7 +44,7 @@ export function Header({ userRole = "student", balance = 50, userName = "Nguyễ
     <header className="sticky top-0 z-50 border-b bg-white shadow-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         <div className="flex items-center gap-2">
-          <Link href={userRole === "student" ? "/dashboard" : "/spso/dashboard"} className="flex items-center gap-2">
+          <Link href={userRole === "student" ? "/dashboard" : "/admin/dashboard"} className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black">
               <span className="text-sm font-bold text-white">⊜</span>
             </div>

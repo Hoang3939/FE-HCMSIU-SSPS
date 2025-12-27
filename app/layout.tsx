@@ -2,7 +2,8 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
-import { Toaster } from "sonner"
+import { Toaster } from "@/components/ui/toaster"
+import { Toaster as SonnerToaster } from "sonner"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin", "vietnamese"] })
@@ -39,7 +40,8 @@ export default function RootLayout({
     <html lang="vi">
       <body className={`${inter.className} font-sans antialiased`}>
         {children}
-        <Toaster position="top-right" richColors />
+        <Toaster />
+        <SonnerToaster position="top-right" richColors />
         <Analytics />
       </body>
     </html>

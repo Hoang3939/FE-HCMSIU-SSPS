@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -133,10 +132,7 @@ export default function SPSOHistoryPage() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header userRole="spso" userName="Admin SPSO" />
-
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-12">
+    <div className="p-6">
         <div className="mb-6 text-center sm:mb-8">
           <h1 className="mb-2 text-3xl font-bold sm:text-4xl">Lịch sử in ấn</h1>
           <p className="text-gray-600">Xem lịch sử in ấn của tất cả sinh viên</p>
@@ -349,7 +345,6 @@ export default function SPSOHistoryPage() {
             )}
           </CardContent>
         </Card>
-      </main>
     </div>
   )
 }
