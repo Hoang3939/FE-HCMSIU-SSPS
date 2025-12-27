@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/lib/stores/auth-store"
 import { useRouter } from "next/navigation"
+import { authAPI } from "@/lib/api/auth-api"
 
 const menuItems = [
   {
@@ -62,9 +63,19 @@ export default function AdminLayout({
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const { clearAuth, user } = useAuthStore()
 
-  const handleLogout = () => {
-    clearAuth()
-    router.push("/login")
+  const handleLogout = async () => {
+    try {
+      // Gọi API logout để xóa refresh token cookie ở server
+      // authAPI.logout() đã xử lý clearAuth() bên trong
+      await authAPI.logout()
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Đảm bảo clear auth state dù có lỗi
+      clearAuth()
+    } finally {
+      // Redirect về login
+      router.push("/login")
+    }
   }
 
   return (

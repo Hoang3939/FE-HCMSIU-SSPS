@@ -1,13 +1,13 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../stores/auth-store';
-import { API_ENDPOINTS } from '../api-config';
+import { API_ENDPOINTS, API_BASE_URL } from '../api-config';
 import type { ApiResponse, RefreshTokenResponse } from '../types/api.types';
 
 /**
  * Axios Instance với cấu hình global
  */
 const apiClient: AxiosInstance = axios.create({
-  baseURL: 'http://localhost:3001/api',
+  baseURL: `${API_BASE_URL}/api`,
   withCredentials: true, // Bắt buộc: Tự động gửi kèm Refresh Token (Cookie)
   headers: {
     'Content-Type': 'application/json',
@@ -37,6 +37,15 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
   });
   
   failedQueue = [];
+};
+
+/**
+ * Reset interceptor state (dùng khi logout)
+ */
+export const resetInterceptorState = () => {
+  isRefreshing = false;
+  // Reject tất cả request đang chờ trong queue
+  processQueue(new AxiosError('Logout: Request cancelled'), null);
 };
 
 /**
@@ -95,7 +104,7 @@ apiClient.interceptors.response.use(
         // Sử dụng axios trực tiếp để tránh vòng lặp vô hạn với interceptor
         // Refresh token sẽ tự động gửi kèm trong cookie (withCredentials: true)
         const response = await axios.post<ApiResponse<RefreshTokenResponse>>(
-          `http://localhost:3001/api${API_ENDPOINTS.auth.refreshToken}`,
+          `${API_BASE_URL}/api${API_ENDPOINTS.auth.refreshToken}`,
           {},
           {
             withCredentials: true,

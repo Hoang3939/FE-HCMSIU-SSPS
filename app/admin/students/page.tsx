@@ -325,7 +325,6 @@ export default function StudentsManagementPage() {
             )}
           </DialogContent>
         </Dialog>
-      </main>
     </div>
   )
 }
