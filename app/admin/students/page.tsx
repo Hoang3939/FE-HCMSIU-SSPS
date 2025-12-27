@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -128,10 +127,7 @@ export default function StudentsManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header userRole="spso" userName="Admin SPSO" />
-
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-12">
+    <div className="p-6">
         <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Quản lý sinh viên</h1>
@@ -319,7 +315,7 @@ export default function StudentsManagementPage() {
                 </div>
 
                 <div className="flex justify-end">
-                  <Link href={`/spso/history?studentId=${selectedStudent.id}`}>
+                  <Link href={`/admin/history?studentId=${selectedStudent.id}`}>
                     <Button className="bg-indigo-600 hover:bg-indigo-700">
                       Xem chi tiết đầy đủ
                     </Button>

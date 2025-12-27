@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { Toaster } from "@/components/ui/toaster"
 import { Toaster } from "sonner"
 import "./globals.css"
 
@@ -39,6 +40,7 @@ export default function RootLayout({
     <html lang="vi">
       <body className={`${inter.className} font-sans antialiased`}>
         {children}
+        <Toaster />
         <Toaster position="top-right" richColors />
         <Analytics />
       </body>
