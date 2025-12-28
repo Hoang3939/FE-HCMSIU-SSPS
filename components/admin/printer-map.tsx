@@ -5,6 +5,7 @@ import { Printer, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet"
+import L from "leaflet"
 import { Icon, LatLng } from "leaflet"
 import "leaflet/dist/leaflet.css"
 import { mapAPI, type PrinterWithLocation, type CreateMapLocationDto } from "@/lib/api/map-api"
@@ -18,13 +19,15 @@ interface PrinterMapProps {
 const defaultCenter: [number, number] = [10.762622, 106.660172] // Ho Chi Minh City
 
 // Fix for default marker icon in Next.js
-import L from "leaflet"
-delete (L.Icon.Default.prototype as any)._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-})
+// This must run after leaflet is imported
+if (typeof window !== "undefined") {
+  delete (L.Icon.Default.prototype as any)._getIconUrl
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+    iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+  })
+}
 
 // Custom marker colors
 const createCustomIcon = (color: string, isSelected: boolean = false) => {
@@ -70,7 +73,7 @@ export function PrinterMap({ printers: initialPrinters, onLocationUpdate }: Prin
       // X = latitude, Y = longitude
       const positions = new Map<string, [number, number]>()
       data.forEach(printer => {
-        if (printer.X !== null && printer.Y !== null) {
+        if (printer.X !== null && printer.X !== undefined && printer.Y !== null && printer.Y !== undefined) {
           positions.set(printer.PrinterID, [printer.X, printer.Y])
         }
       })

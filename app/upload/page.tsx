@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button"
 import { FileText, Upload, X, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { uploadDocument, getUserBalance } from "@/lib/api"
+import { getUploadLimits } from "@/lib/api/admin-api"
 import { toast } from "sonner"
+import { AlertCircle } from "lucide-react"
 
 interface UploadedDocument {
   id: string
@@ -23,22 +25,38 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<{ [key: number]: number }>({})
   const [balance, setBalance] = useState(0)
+  const [maxFileSizeMB, setMaxFileSizeMB] = useState<number | null>(null)
+  const [allowedFileTypes, setAllowedFileTypes] = useState<string[]>([".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt"])
+  const [fileErrors, setFileErrors] = useState<{ [key: number]: string }>({})
   const router = useRouter()
 
-  // Load balance on mount
+  // Load balance and max file size on mount
   useEffect(() => {
-    const loadBalance = async () => {
+    const loadData = async () => {
       try {
         const balanceData = await getUserBalance()
         setBalance(balanceData.balancePages)
       } catch (error) {
         console.error('Error loading balance:', error)
       }
+      
+      try {
+        const limits = await getUploadLimits()
+        setMaxFileSizeMB(limits.max_file_size_mb)
+        // Cập nhật allowed file types từ config (thêm dấu chấm vào đầu)
+        const typesWithDot = limits.allowed_file_types.map(type => `.${type.toLowerCase()}`)
+        setAllowedFileTypes(typesWithDot)
+      } catch (error) {
+        console.error('Error loading upload limits:', error)
+        // Fallback to default if can't load config
+        setMaxFileSizeMB(100)
+        setAllowedFileTypes([".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt"])
+      }
     }
-    loadBalance()
+    loadData()
   }, [])
 
-  const allowedTypes = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt"]
+  // allowedTypes giờ được lấy từ SystemConfigs (state allowedFileTypes)
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -50,26 +68,137 @@ export default function UploadPage() {
     }
   }
 
+  const validateFile = (file: File): { valid: boolean; error?: string } => {
+    // Check file type - sử dụng allowedFileTypes từ SystemConfigs
+    const ext = "." + file.name.split(".").pop()?.toLowerCase()
+    if (!allowedFileTypes.includes(ext)) {
+      return {
+        valid: false,
+        error: `Định dạng file "${ext.toUpperCase()}" không được phép upload. Chỉ được phép upload các loại tệp: ${allowedFileTypes.map(t => t.toUpperCase()).join(", ")}`
+      }
+    }
+
+    // Check file size if maxFileSizeMB is loaded
+    if (maxFileSizeMB !== null) {
+      const fileSizeMB = file.size / 1024 / 1024
+      if (fileSizeMB > maxFileSizeMB) {
+        return {
+          valid: false,
+          error: `File quá lớn! Kích thước tối đa là ${maxFileSizeMB}MB (file hiện tại: ${fileSizeMB.toFixed(2)}MB)`
+        }
+      }
+    }
+
+    return { valid: true }
+  }
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
 
-    const droppedFiles = Array.from(e.dataTransfer.files).filter((file) => {
+    const droppedFiles = Array.from(e.dataTransfer.files)
+    const validFiles: File[] = []
+    const newErrors: { [key: number]: string } = {}
+    
+    droppedFiles.forEach((file) => {
       const ext = "." + file.name.split(".").pop()?.toLowerCase()
-      return allowedTypes.includes(ext)
+      // Kiểm tra extension trước
+      if (!allowedFileTypes.includes(ext)) {
+        const fileIndex = files.length + validFiles.length
+        newErrors[fileIndex] = `Định dạng file "${ext.toUpperCase()}" không được phép upload`
+        toast.error(`File "${file.name}" không được phép upload!`, {
+          description: `Chỉ được phép upload các loại tệp: ${allowedFileTypes.map(t => t.toUpperCase()).join(", ")}`,
+          duration: 5000,
+          icon: <AlertCircle className="h-5 w-5" />,
+        })
+        return
+      }
+      
+      const validation = validateFile(file)
+      if (validation.valid) {
+        validFiles.push(file)
+      } else {
+        const fileIndex = files.length + validFiles.length
+        newErrors[fileIndex] = validation.error || 'File không hợp lệ'
+        if (validation.error?.includes('quá lớn')) {
+          toast.error(`File "${file.name}" quá lớn!`, {
+            description: validation.error,
+            duration: 5000,
+            icon: <AlertCircle className="h-5 w-5" />,
+          })
+        } else if (validation.error?.includes('không được phép')) {
+          toast.error(`File "${file.name}" không được phép upload!`, {
+            description: validation.error,
+            duration: 5000,
+            icon: <AlertCircle className="h-5 w-5" />,
+          })
+        } else {
+          toast.error(`File "${file.name}" không hợp lệ`, {
+            description: validation.error,
+            duration: 4000,
+          })
+        }
+      }
     })
 
-    setFiles((prev) => [...prev, ...droppedFiles])
+    if (Object.keys(newErrors).length > 0) {
+      setFileErrors((prev) => ({ ...prev, ...newErrors }))
+    }
+    setFiles((prev) => [...prev, ...validFiles])
   }
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const selectedFiles = Array.from(e.target.files).filter((file) => {
+      const selectedFiles = Array.from(e.target.files)
+      const validFiles: File[] = []
+      const newErrors: { [key: number]: string } = {}
+      
+      selectedFiles.forEach((file) => {
         const ext = "." + file.name.split(".").pop()?.toLowerCase()
-        return allowedTypes.includes(ext)
+        // Kiểm tra extension trước
+        if (!allowedFileTypes.includes(ext)) {
+          const fileIndex = files.length + validFiles.length
+          newErrors[fileIndex] = `Định dạng file "${ext.toUpperCase()}" không được phép upload`
+          toast.error(`File "${file.name}" không được phép upload!`, {
+            description: `Chỉ được phép upload các loại tệp: ${allowedFileTypes.map(t => t.toUpperCase()).join(", ")}`,
+            duration: 5000,
+            icon: <AlertCircle className="h-5 w-5" />,
+          })
+          return
+        }
+        
+        const validation = validateFile(file)
+        if (validation.valid) {
+          validFiles.push(file)
+        } else {
+          const fileIndex = files.length + validFiles.length
+          newErrors[fileIndex] = validation.error || 'File không hợp lệ'
+          if (validation.error?.includes('quá lớn')) {
+            toast.error(`File "${file.name}" quá lớn!`, {
+              description: validation.error,
+              duration: 5000,
+              icon: <AlertCircle className="h-5 w-5" />,
+            })
+          } else if (validation.error?.includes('không được phép')) {
+            toast.error(`File "${file.name}" không được phép upload!`, {
+              description: validation.error,
+              duration: 5000,
+              icon: <AlertCircle className="h-5 w-5" />,
+            })
+          } else {
+            toast.error(`File "${file.name}" không hợp lệ`, {
+              description: validation.error,
+              duration: 4000,
+            })
+          }
+        }
       })
-      setFiles((prev) => [...prev, ...selectedFiles])
+      
+      if (Object.keys(newErrors).length > 0) {
+        setFileErrors((prev) => ({ ...prev, ...newErrors }))
+      }
+      setFiles((prev) => [...prev, ...validFiles])
     }
   }
 
@@ -99,8 +228,22 @@ export default function UploadPage() {
           setUploadProgress((prev) => ({ ...prev, [i]: 100 }))
           toast.success(`Đã upload: ${file.name} (${result.document.detectedPageCount} trang)`)
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
           console.error(`Error uploading ${file.name}:`, error)
-          toast.error(`Lỗi upload ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+          
+          // Improved error toast with better formatting
+          if (errorMessage.includes('quá lớn') || errorMessage.includes('File quá lớn')) {
+            toast.error(`File "${file.name}" quá lớn!`, {
+              description: errorMessage,
+              duration: 6000,
+              icon: <AlertCircle className="h-5 w-5" />,
+            })
+          } else {
+            toast.error(`Lỗi upload "${file.name}"`, {
+              description: errorMessage,
+              duration: 5000,
+            })
+          }
         }
       }
 
@@ -166,7 +309,7 @@ export default function UploadPage() {
                 type="file"
                 id="file-upload"
                 multiple
-                accept=".pdf,.doc,.docx,.ppt,.pptx"
+                accept={allowedFileTypes.join(',')}
                 onChange={handleFileInput}
                 className="hidden"
               />
@@ -187,7 +330,10 @@ export default function UploadPage() {
 
             <div className="text-sm text-blue-100">
               <p className="mb-1">Hoặc kéo các tệp vào đây</p>
-              <p className="text-xs">Hỗ trợ: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT (tối đa 100MB)</p>
+              <p className="text-xs">
+                Hỗ trợ: {allowedFileTypes.map(t => t.toUpperCase().replace('.', '')).join(', ')}
+                {maxFileSizeMB !== null && ` (tối đa ${maxFileSizeMB}MB)`}
+              </p>
             </div>
           </div>
         </div>
@@ -222,6 +368,12 @@ export default function UploadPage() {
                           {(file.size / 1024 / 1024).toFixed(2)} MB
                           {uploaded && ` • ${uploaded.pageCount} trang`}
                         </div>
+                        {fileErrors[index] && (
+                          <div className="mt-1 flex items-center gap-1 text-sm text-red-600">
+                            <AlertCircle className="h-4 w-4" />
+                            <span>{fileErrors[index]}</span>
+                          </div>
+                        )}
                         {uploading && progress < 100 && (
                           <div className="mt-2 h-2 w-full rounded-full bg-gray-200">
                             <div

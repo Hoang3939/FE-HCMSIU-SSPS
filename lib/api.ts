@@ -76,39 +76,58 @@ export async function uploadDocument(file: File): Promise<{
     'x-student-id': studentId,
   };
 
-  const response = await fetch(`${API_BASE_URL}/api/documents/upload`, {
-    method: 'POST',
-    headers,
-    body: formData,
-  }).catch((error) => {
-    console.error('Fetch error:', error);
-    throw new Error(`Không thể kết nối đến server. Vui lòng kiểm tra backend có đang chạy tại ${API_BASE_URL} không.`);
-  });
+  // Tạo AbortController để có thể timeout request
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 giây (2 phút) cho upload file lớn
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Unknown error' }));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/documents/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+      signal: controller.signal, // Thêm signal để có thể abort
+    }).catch((error) => {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout: File quá lớn hoặc server xử lý quá lâu. Vui lòng thử lại với file nhỏ hơn hoặc kiểm tra backend.');
+      }
+      console.error('Fetch error:', error);
+      throw new Error(`Không thể kết nối đến server. Vui lòng kiểm tra backend có đang chạy tại ${API_BASE_URL} không.`);
+    });
+
+    clearTimeout(timeoutId); // Clear timeout nếu request thành công
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    }
+
+    const apiResponse = await response.json();
+
+    // Backend returns { success: true, message: "...", data: { id, originalFileName, ... } }
+    // Map to expected format: { message: "...", document: { id, originalFileName, ... } }
+    if (apiResponse.success && apiResponse.data) {
+      return {
+        message: apiResponse.message || 'Upload thành công',
+        document: {
+          id: apiResponse.data.id,
+          originalFileName: apiResponse.data.originalFileName,
+          detectedPageCount: apiResponse.data.detectedPageCount,
+          fileSize: apiResponse.data.fileSize,
+          uploadedAt: apiResponse.data.uploadedAt,
+        },
+      };
+    }
+
+    // Fallback if structure is different
+    throw new Error('Unexpected response format from server');
+  } catch (error) {
+    clearTimeout(timeoutId); // Đảm bảo clear timeout trong mọi trường hợp
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timeout: File quá lớn hoặc server xử lý quá lâu. Vui lòng thử lại với file nhỏ hơn hoặc kiểm tra backend.');
+    }
+    throw error; // Re-throw các lỗi khác
   }
-
-  const apiResponse = await response.json();
-
-  // Backend returns { success: true, message: "...", data: { id, originalFileName, ... } }
-  // Map to expected format: { message: "...", document: { id, originalFileName, ... } }
-  if (apiResponse.success && apiResponse.data) {
-    return {
-      message: apiResponse.message || 'Upload thành công',
-      document: {
-        id: apiResponse.data.id,
-        originalFileName: apiResponse.data.originalFileName,
-        detectedPageCount: apiResponse.data.detectedPageCount,
-        fileSize: apiResponse.data.fileSize,
-        uploadedAt: apiResponse.data.uploadedAt,
-      },
-    };
-  }
-
-  // Fallback if structure is different
-  throw new Error('Unexpected response format from server');
 }
 
 // Get document by ID

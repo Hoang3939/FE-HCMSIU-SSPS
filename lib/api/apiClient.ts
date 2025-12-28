@@ -149,25 +149,38 @@ apiClient.interceptors.response.use(
         
         // Log the error for debugging
         const axiosError = refreshError as AxiosError;
-        if (axiosError.response?.status === 401) {
+        const errorStatus = axiosError.response?.status;
+        const isAuthError = errorStatus === 401 || errorStatus === 403;
+        const isNetworkError = axiosError.code === 'ERR_NETWORK' || axiosError.code === 'ECONNREFUSED' || axiosError.code === 'ECONNABORTED';
+        
+        if (isAuthError) {
           console.warn('[apiClient] Refresh token expired or invalid. Redirecting to login.');
         } else {
-          console.error('[apiClient] Error refreshing token:', {
-            status: axiosError.response?.status,
+          console.error('[apiClient] Error refreshing token (non-auth error):', {
+            status: errorStatus,
+            code: axiosError.code,
             message: axiosError.message,
             data: axiosError.response?.data,
           });
         }
         
-        // Clear auth state and redirect to login
-        useAuthStore.getState().clearAuth();
-        
-        // Only redirect if on client-side (browser)
-        if (typeof window !== 'undefined') {
-          // Avoid redirect loops - only redirect if not already on login page
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
+        // Chỉ clear auth và redirect nếu là lỗi auth (401, 403)
+        // Không redirect nếu là lỗi server (500) hoặc network
+        if (isAuthError) {
+          // Clear auth state and redirect to login
+          useAuthStore.getState().clearAuth();
+          
+          // Only redirect if on client-side (browser)
+          if (typeof window !== 'undefined') {
+            // Avoid redirect loops - only redirect if not already on login page
+            if (window.location.pathname !== '/login') {
+              window.location.href = '/login';
+            }
           }
+        } else {
+          // Nếu là lỗi server hoặc network, không redirect
+          // Chỉ reject error để component có thể xử lý
+          console.warn('[apiClient] Refresh token failed but not auth error. Not redirecting.');
         }
         
         return Promise.reject(refreshError);
