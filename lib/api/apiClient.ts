@@ -8,7 +8,7 @@ import type { ApiResponse, RefreshTokenResponse } from '../types/api.types';
  */
 const apiClient: AxiosInstance = axios.create({
   baseURL: `${API_BASE_URL}/api`,
-  withCredentials: true, // Bắt buộc: Tự động gửi kèm Refresh Token (Cookie)
+  withCredentials: true, // Required: Automatically send refresh token cookie
   headers: {
     'Content-Type': 'application/json',
   },
@@ -44,7 +44,6 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
  */
 export const resetInterceptorState = () => {
   isRefreshing = false;
-  // Reject tất cả request đang chờ trong queue
   processQueue(new AxiosError('Logout: Request cancelled'), null);
 };
 
@@ -56,6 +55,7 @@ apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const { accessToken } = useAuthStore.getState();
     
+    // Only add Authorization header if token exists and config has headers
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
@@ -78,9 +78,17 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     
-    // Chỉ xử lý lỗi 401 và chưa retry
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
-      // Nếu đang refresh token, thêm request vào queue
+    // Skip refresh logic for auth endpoints to avoid infinite loops
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/');
+    
+    // Only handle 401 errors for non-auth endpoints and if not already retried
+    if (
+      error.response?.status === 401 && 
+      originalRequest && 
+      !originalRequest._retry &&
+      !isAuthEndpoint
+    ) {
+      // If already refreshing, queue this request
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -100,58 +108,93 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Gọi API refresh token
-        // Sử dụng axios trực tiếp để tránh vòng lặp vô hạn với interceptor
-        // Refresh token sẽ tự động gửi kèm trong cookie (withCredentials: true)
+        // Call refresh token endpoint using axios directly to avoid interceptor loop
+        // Refresh token is automatically sent via cookie (withCredentials: true)
         const response = await axios.post<ApiResponse<RefreshTokenResponse>>(
           `${API_BASE_URL}/api${API_ENDPOINTS.auth.refreshToken}`,
           {},
           {
             withCredentials: true,
+            headers: {
+              'Content-Type': 'application/json',
+            },
           }
         );
 
         const newAccessToken = response.data.data?.token;
         
-        if (newAccessToken) {
-          // Cập nhật accessToken mới vào store
-          useAuthStore.getState().setAccessToken(newAccessToken);
-          
-          // Retry request ban đầu với token mới
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-          }
-          
-          // Xử lý queue: resolve tất cả các request đang chờ
-          processQueue(null, newAccessToken);
-          
-          isRefreshing = false;
-          
-          return apiClient(originalRequest);
-        } else {
-          throw new Error('Không nhận được access token mới');
+        if (!newAccessToken) {
+          throw new Error('No access token received from refresh endpoint');
         }
+
+        // Update accessToken in store
+        useAuthStore.getState().setAccessToken(newAccessToken);
+        
+        // Update original request header with new token
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        }
+        
+        // Process queue: resolve all waiting requests
+        processQueue(null, newAccessToken);
+        
+        isRefreshing = false;
+        
+        // Retry original request with new token
+        return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh token thất bại
+        // Refresh token failed
         isRefreshing = false;
         processQueue(refreshError as AxiosError, null);
         
-        // Xóa thông tin user và điều hướng về trang login
+        // Log the error for debugging
+        const axiosError = refreshError as AxiosError;
+        if (axiosError.response?.status === 401) {
+          console.warn('[apiClient] Refresh token expired or invalid. Redirecting to login.');
+        } else {
+          console.error('[apiClient] Error refreshing token:', {
+            status: axiosError.response?.status,
+            message: axiosError.message,
+            data: axiosError.response?.data,
+          });
+        }
+        
+        // Clear auth state and redirect to login
         useAuthStore.getState().clearAuth();
         
-        // Chỉ redirect nếu đang ở client-side (browser)
+        // Only redirect if on client-side (browser)
         if (typeof window !== 'undefined') {
-          window.location.href = '/login';
+          // Avoid redirect loops - only redirect if not already on login page
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
         }
         
         return Promise.reject(refreshError);
       }
     }
 
-    // Xử lý các lỗi khác
+    // Handle network errors
+    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      console.error('[apiClient] Network Error:', {
+        message: error.message,
+        code: error.code,
+        baseURL: apiClient.defaults.baseURL,
+        url: error.config?.url,
+        fullUrl: error.config ? `${apiClient.defaults.baseURL}${error.config.url}` : 'unknown',
+      });
+      
+      const networkError = new Error(
+        `Cannot connect to backend server. Please ensure the backend is running at ${API_BASE_URL}`
+      );
+      (networkError as any).code = error.code;
+      (networkError as any).originalError = error;
+      return Promise.reject(networkError);
+    }
+    
+    // Handle other errors
     return Promise.reject(error);
   }
 );
 
 export default apiClient;
-

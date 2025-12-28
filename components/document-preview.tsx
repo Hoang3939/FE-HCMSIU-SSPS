@@ -43,6 +43,7 @@ export function DocumentPreview({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const renderTaskRef = useRef<any>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const previewUrl = `/api/documents/${documentId}/preview`
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
@@ -83,8 +84,23 @@ export function DocumentPreview({
 
   // Load PDF document
   useEffect(() => {
-    const loadPDF = async () => {
+    // Create new abort controller for this effect
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+    
+    const loadPDF = async (retryCount = 0, isInitialLoad = false) => {
       if (typeof window === "undefined") return
+      
+      // Check if component was unmounted or documentId changed
+      if (abortController.signal.aborted) {
+        return
+      }
+      
+      // Small delay on initial load to give backend time to start conversion
+      if (isInitialLoad && retryCount === 0) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+        if (abortController.signal.aborted) return
+      }
       
       setLoading(true)
       setError(null)
@@ -104,6 +120,7 @@ export function DocumentPreview({
           headers: {
             'x-student-id': studentId,
           },
+          signal: abortController.signal,
         })
 
         if (!response.ok) {
@@ -127,34 +144,158 @@ export function DocumentPreview({
             }
           }
           
-          // Special handling for LibreOffice errors
-          if (response.status === 500 && errorMessage.includes('LibreOffice')) {
-            if (errorMessage.includes('exit code 1')) {
-              errorMessage = 'LibreOffice không thể convert file Word này. Có thể file bị lỗi hoặc có vấn đề về định dạng. Vui lòng thử file khác hoặc kiểm tra file có mở được trong Word không.'
-            } else if (errorMessage.includes('không được cài đặt')) {
-              errorMessage = 'LibreOffice chưa được cài đặt. Vui lòng cài LibreOffice để xem preview file Word/PPT.'
+          // Retry logic for server errors (backend might be converting file)
+          // Only retry for 500/503 errors and not for specific LibreOffice errors
+          // Backend has 30s timeout for LibreOffice conversion, so we retry up to 5 times with increasing delays
+          const isRetryableError = 
+            (response.status === 500 || response.status === 503) &&
+            !errorMessage.includes('exit code 1') &&
+            !errorMessage.includes('không thể convert') &&
+            !errorMessage.includes('không được cài đặt') &&
+            !errorMessage.includes('chưa được cài đặt') &&
+            !errorMessage.includes('timeout') && // Don't retry if backend already timed out
+            retryCount < 5 // Max 5 retries (total ~28 seconds)
+          
+          if (isRetryableError) {
+            // Check if aborted before retry
+            if (abortController.signal.aborted) {
+              return
+            }
+            
+            // Wait before retry with exponential backoff: 2s, 3s, 5s, 8s, 10s
+            // This gives backend up to ~28 seconds to convert (backend timeout is 30s)
+            const delays = [2000, 3000, 5000, 8000, 10000]
+            const delay = delays[retryCount] || 10000
+            console.log(`[DocumentPreview] Backend might be converting file. Retrying in ${delay}ms (attempt ${retryCount + 1}/5)...`)
+            
+            // Wait with abort check
+            await new Promise<void>((resolve, reject) => {
+              const timeoutId = setTimeout(() => {
+                if (!abortController.signal.aborted) {
+                  resolve()
+                } else {
+                  reject(new Error('Aborted'))
+                }
+              }, delay)
+              
+              abortController.signal.addEventListener('abort', () => {
+                clearTimeout(timeoutId)
+                reject(new Error('Aborted'))
+              })
+            }).catch(() => {
+              // Aborted, stop retrying
+              return
+            })
+            
+            // Check again before retry
+            if (!abortController.signal.aborted) {
+              return loadPDF(retryCount + 1, false)
             }
           }
           
-          throw new Error(errorMessage)
+          // Special handling for LibreOffice errors
+          if (response.status === 500 && errorMessage.includes('LibreOffice')) {
+            if (errorMessage.includes('exit code 1') || errorMessage.includes('không thể convert')) {
+              errorMessage = 'LibreOffice không thể convert file này sang PDF để preview. Có thể file bị lỗi, bị mã hóa, hoặc có vấn đề về định dạng. Vui lòng thử file khác hoặc kiểm tra file có mở được trong Word/PowerPoint không.'
+            } else if (errorMessage.includes('không được cài đặt') || errorMessage.includes('chưa được cài đặt')) {
+              errorMessage = 'LibreOffice chưa được cài đặt trên server. Vui lòng liên hệ quản trị viên để cài LibreOffice để xem preview file Word/PPT.'
+            } else if (errorMessage.includes('timeout')) {
+              errorMessage = 'Quá trình convert mất quá nhiều thời gian. File có thể quá lớn hoặc phức tạp. Vui lòng thử lại sau.'
+            }
+          }
+          
+          // If it's a 404 or file not found error
+          if (response.status === 404) {
+            errorMessage = 'Không tìm thấy file để preview. File có thể đã bị xóa hoặc không tồn tại.'
+          }
+          
+          // Only log error after all retries failed
+          if (!isRetryableError) {
+            console.error('[DocumentPreview] Error loading PDF:', {
+              status: response.status,
+              errorMessage,
+              documentId,
+              fileName,
+              retryCount,
+            })
+          }
+          
+          // Set error and stop loading - don't throw to avoid unhandled errors
+          setError(errorMessage)
+          setLoading(false)
+          setPdfDoc(null)
+          return
+        }
+
+        // Check content type before processing
+        const contentType = response.headers.get('content-type') || ''
+        if (!contentType.includes('application/pdf')) {
+          const errorMsg = 'Server không trả về file PDF. Có thể file không thể convert sang PDF.'
+          console.error('[DocumentPreview] Invalid content type:', contentType)
+          setError(errorMsg)
+          setLoading(false)
+          setPdfDoc(null)
+          return
         }
 
         const blob = await response.blob()
         const arrayBuffer = await blob.arrayBuffer()
+        
+        // Cancel any existing render tasks before loading new PDF
+        if (renderTaskRef.current) {
+          renderTaskRef.current.cancel()
+          renderTaskRef.current = null
+        }
         
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
         const pdf = await loadingTask.promise
         setPdfDoc(pdf)
         setCurrentPage(1)
         setLoading(false)
+        setError(null) // Clear any previous errors
       } catch (err) {
+        // Ignore abort errors (component unmounted or documentId changed)
+        if (err instanceof Error && (err.name === 'AbortError' || err.message === 'Aborted')) {
+          return
+        }
+        
+        // Ignore if aborted
+        if (abortController.signal.aborted) {
+          return
+        }
+        
         console.error('Error loading PDF:', err)
+        
+        // Cancel any render tasks on error
+        if (renderTaskRef.current) {
+          renderTaskRef.current.cancel()
+          renderTaskRef.current = null
+        }
+        
         setError(err instanceof Error ? err.message : 'Không thể tải preview. Vui lòng thử lại.')
         setLoading(false)
+        setPdfDoc(null)
       }
     }
 
-    loadPDF()
+    loadPDF(0, true) // Start with initial load flag to give backend time
+
+    return () => {
+      // Abort any ongoing fetch requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
+      
+      // Cleanup: cancel any render tasks and clear state
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel()
+        renderTaskRef.current = null
+      }
+      setPdfDoc(null)
+      setRenderedPages(new Map())
+      setError(null)
+    }
   }, [documentId, previewUrl, apiBaseUrl])
 
   // Calculate grid layout for pages per sheet
@@ -249,9 +390,18 @@ export function DocumentPreview({
                 viewport: scaledViewport,
               }
               
-              await page.render(renderContext).promise
+              const renderTask = page.render(renderContext)
+              // Store render task for cancellation
+              if (!renderTaskRef.current) {
+                renderTaskRef.current = renderTask
+              }
+              await renderTask.promise
               context.restore()
             } catch (err) {
+              // Ignore cancellation errors
+              if (err && typeof err === 'object' && 'name' in err && err.name === 'RenderingCancelledException') {
+                return
+              }
               console.error(`Error rendering page ${pageNum}:`, err)
             }
           })()
@@ -294,7 +444,17 @@ export function DocumentPreview({
 
   // Render current page(s) when PDF doc, page, or settings change
   useEffect(() => {
-    if (!pdfDoc || !canvasRef.current || pagesToDisplay.length === 0) return
+    // Don't render if there's an error or no PDF doc
+    if (error || !pdfDoc || !canvasRef.current || pagesToDisplay.length === 0) {
+      // Clear canvas if there's an error
+      if (error && canvasRef.current) {
+        const context = canvasRef.current.getContext('2d')
+        if (context) {
+          context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+        }
+      }
+      return
+    }
 
     // Calculate which pages to render on current sheet
     const startIndex = (currentPage - 1) * pagesPerSheet
@@ -304,7 +464,10 @@ export function DocumentPreview({
 
     // Small delay to ensure previous render is cancelled
     const timeoutId = setTimeout(() => {
-      renderPages(pagesToRender, canvasRef.current!)
+      // Double check PDF doc still exists and no error before rendering
+      if (!error && pdfDoc && canvasRef.current) {
+        renderPages(pagesToRender, canvasRef.current)
+      }
     }, 50)
 
     return () => {
@@ -315,7 +478,7 @@ export function DocumentPreview({
         renderTaskRef.current = null
       }
     }
-  }, [pdfDoc, currentPage, paperSize, orientation, zoom, pagesToDisplay, pagesPerSheet])
+  }, [pdfDoc, currentPage, paperSize, orientation, zoom, pagesToDisplay, pagesPerSheet, error])
 
   const goToPage = (page: number) => {
     if (page >= 1 && page <= displayPageCount) {
@@ -404,8 +567,30 @@ export function DocumentPreview({
             </div>
           )}
           {error && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
-              <p className="text-red-600 text-center px-4">{error}</p>
+            <div className="absolute inset-0 flex items-center justify-center bg-white/90 z-10 p-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md w-full">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-red-800 text-sm font-semibold mb-2">Không thể tải preview</p>
+                    <p className="text-red-700 text-sm leading-relaxed mb-3">{error}</p>
+                    {error.includes('LibreOffice') && (
+                      <div className="mt-3 pt-3 border-t border-red-200">
+                        <p className="text-red-600 text-xs mb-2 font-medium">Gợi ý:</p>
+                        <ul className="text-red-600 text-xs space-y-1 list-disc list-inside">
+                          <li>Kiểm tra file có mở được trong Word/PowerPoint không</li>
+                          <li>Thử upload lại file hoặc chuyển sang định dạng PDF</li>
+                          <li>File có thể bị password bảo vệ hoặc bị lỗi định dạng</li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
           {pdfDoc && (

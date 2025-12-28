@@ -102,8 +102,14 @@ function PrintConfigContent() {
         setPrinters(printersData.filter((p: { isActive: boolean }) => p.isActive))
 
         // Load balance
-        const balanceData = await getUserBalance()
-        setBalance(balanceData.balancePages)
+        try {
+          const balanceData = await getUserBalance()
+          setBalance(balanceData.balancePages || 0)
+        } catch (error) {
+          console.error('Error loading balance:', error)
+          setBalance(0)
+          toast.error('Không thể tải số dư. Vui lòng thử lại.')
+        }
       } catch (error) {
         console.error('Error loading data:', error)
         toast.error('Lỗi khi tải dữ liệu')
@@ -129,9 +135,11 @@ function PrintConfigContent() {
       actualPages = totalPageCount
     }
 
-    // Calculate: ActualPages × Copies × SizeFactor
+    // Calculate: (ActualPages / PagesPerSheet) × Copies × SizeFactor
     const sizeFactor = paperSize === "A3" ? 2 : 1
-    return actualPages * copies * sizeFactor
+    const effectivePagesPerSheet = pagesPerSheetMode === "custom" ? customPagesPerSheet : pagesPerSheet
+    const sheetsNeeded = Math.ceil(actualPages / effectivePagesPerSheet)
+    return sheetsNeeded * copies * sizeFactor
   }
 
   const handlePrint = async () => {
@@ -142,7 +150,14 @@ function PrintConfigContent() {
 
     const totalCost = calculateCost()
     if (totalCost > balance) {
-      toast.error(`Không đủ số dư. Cần ${totalCost} trang, hiện có ${balance} trang.`)
+      toast.error(`Không đủ số dư! Cần ${totalCost} trang, hiện có ${balance} trang. Vui lòng mua thêm trang để tiếp tục.`, {
+        duration: 5000,
+      })
+      return
+    }
+    
+    if (totalCost <= 0) {
+      toast.error('Chi phí in không hợp lệ. Vui lòng kiểm tra lại cấu hình in.')
       return
     }
 
@@ -545,8 +560,26 @@ function PrintConfigContent() {
                   </div>
                 </div>
                 {estimatedCost > balance && (
-                  <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
-                    Không đủ số dư. Cần {estimatedCost} trang, hiện có {balance} trang. Vui lòng mua thêm.
+                  <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <p className="font-semibold text-red-800 mb-1">⚠️ Không đủ số dư</p>
+                        <p className="text-sm text-red-700 mb-2">
+                          Chi phí dự kiến: <span className="font-semibold">{estimatedCost} trang</span>
+                        </p>
+                        <p className="text-sm text-red-700 mb-2">
+                          Số dư hiện tại: <span className="font-semibold">{balance} trang</span>
+                        </p>
+                        <p className="text-sm text-red-600">
+                          Thiếu: <span className="font-semibold">{estimatedCost - balance} trang</span>. Vui lòng mua thêm trang để tiếp tục in.
+                        </p>
+                      </div>
+                    </div>
+                    <Link href="/buy-pages" className="mt-3 inline-block">
+                      <Button variant="outline" size="sm" className="w-full border-red-300 text-red-700 hover:bg-red-100">
+                        Mua thêm trang
+                      </Button>
+                    </Link>
                   </div>
                 )}
                 <div className="flex flex-col gap-3 sm:flex-row">

@@ -15,9 +15,9 @@ async function apiRequest<T>(
   const studentId = getStudentId();
   const url = `${API_BASE_URL}${endpoint}`;
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string> || {}),
   };
 
   // Gửi header x-student-id thay vì Authorization
@@ -25,17 +25,31 @@ async function apiRequest<T>(
     headers['x-student-id'] = studentId;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Unknown error' }));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    // Handle network errors (backend not running, CORS, etc.)
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error(
+        `Không thể kết nối đến server. Vui lòng kiểm tra:\n` +
+        `1. Backend có đang chạy tại ${API_BASE_URL} không?\n` +
+        `2. CORS đã được cấu hình đúng chưa?\n` +
+        `3. Kiểm tra console backend để xem có lỗi gì không.`
+      );
+    }
+    // Re-throw other errors
+    throw error;
   }
-
-  return response.json();
 }
 
 // Upload document
@@ -76,7 +90,25 @@ export async function uploadDocument(file: File): Promise<{
     throw new Error(error.message || `HTTP error! status: ${response.status}`);
   }
 
-  return response.json();
+  const apiResponse = await response.json();
+
+  // Backend returns { success: true, message: "...", data: { id, originalFileName, ... } }
+  // Map to expected format: { message: "...", document: { id, originalFileName, ... } }
+  if (apiResponse.success && apiResponse.data) {
+    return {
+      message: apiResponse.message || 'Upload thành công',
+      document: {
+        id: apiResponse.data.id,
+        originalFileName: apiResponse.data.originalFileName,
+        detectedPageCount: apiResponse.data.detectedPageCount,
+        fileSize: apiResponse.data.fileSize,
+        uploadedAt: apiResponse.data.uploadedAt,
+      },
+    };
+  }
+
+  // Fallback if structure is different
+  throw new Error('Unexpected response format from server');
 }
 
 // Get document by ID
@@ -117,7 +149,13 @@ export async function getAvailablePrinters() {
 
 // Get user balance
 export async function getUserBalance() {
-  return apiRequest<{ balancePages: number }>('/api/student/balance');
+  const response = await apiRequest<{ success: boolean; data: { balancePages: number } }>('/api/student/balance');
+  // Backend returns { success: true, data: { balancePages: number } }
+  if (response.success && response.data) {
+    return { balancePages: response.data.balancePages };
+  }
+  // Fallback if structure is different
+  return response as any;
 }
 
 // Login
@@ -136,7 +174,7 @@ export async function login(username: string, password: string) {
   }
 
   const data = await response.json();
-  
+
   // Save token to localStorage
   if (typeof window !== 'undefined' && data.token) {
     localStorage.setItem('token', data.token);
@@ -159,5 +197,53 @@ export function getCurrentUser() {
   if (typeof window === 'undefined') return null;
   const userStr = localStorage.getItem('user');
   return userStr ? JSON.parse(userStr) : null;
+}
+
+// Create payment transaction
+export async function createPayment(data: {
+  amount: number;
+  pageQuantity: number;
+}): Promise<{
+  transId: string;
+  qrUrl: string;
+}> {
+  const response = await apiRequest<{
+    success: boolean;
+    data: {
+      transId: string;
+      qrUrl: string;
+    };
+  }>('/api/payment/create', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+  if (response.success && response.data) {
+    return response.data;
+  }
+
+  throw new Error('Unexpected response format from server');
+}
+
+// Check payment status
+export async function checkPaymentStatus(transId: string): Promise<{
+  status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+  pages: number;
+}> {
+  const response = await apiRequest<{
+    success: boolean;
+    data: {
+      status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+      pages: number;
+    };
+  }>(`/api/payment/status/${transId}`, {
+    method: 'GET',
+  });
+
+  if (response.success && response.data) {
+    return response.data;
+  }
+
+  throw new Error('Unexpected response format from server');
 }
 
