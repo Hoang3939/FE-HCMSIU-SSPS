@@ -25,17 +25,31 @@ async function apiRequest<T>(
     headers['x-student-id'] = studentId;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Unknown error' }));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    // Handle network errors (backend not running, CORS, etc.)
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error(
+        `Không thể kết nối đến server. Vui lòng kiểm tra:\n` +
+        `1. Backend có đang chạy tại ${API_BASE_URL} không?\n` +
+        `2. CORS đã được cấu hình đúng chưa?\n` +
+        `3. Kiểm tra console backend để xem có lỗi gì không.`
+      );
+    }
+    // Re-throw other errors
+    throw error;
   }
-
-  return response.json();
 }
 
 // Upload document
@@ -183,5 +197,53 @@ export function getCurrentUser() {
   if (typeof window === 'undefined') return null;
   const userStr = localStorage.getItem('user');
   return userStr ? JSON.parse(userStr) : null;
+}
+
+// Create payment transaction
+export async function createPayment(data: {
+  amount: number;
+  pageQuantity: number;
+}): Promise<{
+  transId: string;
+  qrUrl: string;
+}> {
+  const response = await apiRequest<{
+    success: boolean;
+    data: {
+      transId: string;
+      qrUrl: string;
+    };
+  }>('/api/payment/create', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+  if (response.success && response.data) {
+    return response.data;
+  }
+
+  throw new Error('Unexpected response format from server');
+}
+
+// Check payment status
+export async function checkPaymentStatus(transId: string): Promise<{
+  status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+  pages: number;
+}> {
+  const response = await apiRequest<{
+    success: boolean;
+    data: {
+      status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+      pages: number;
+    };
+  }>(`/api/payment/status/${transId}`, {
+    method: 'GET',
+  });
+
+  if (response.success && response.data) {
+    return response.data;
+  }
+
+  throw new Error('Unexpected response format from server');
 }
 

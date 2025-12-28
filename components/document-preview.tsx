@@ -43,6 +43,7 @@ export function DocumentPreview({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const renderTaskRef = useRef<any>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const previewUrl = `/api/documents/${documentId}/preview`
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
@@ -83,8 +84,23 @@ export function DocumentPreview({
 
   // Load PDF document
   useEffect(() => {
-    const loadPDF = async () => {
+    // Create new abort controller for this effect
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+    
+    const loadPDF = async (retryCount = 0, isInitialLoad = false) => {
       if (typeof window === "undefined") return
+      
+      // Check if component was unmounted or documentId changed
+      if (abortController.signal.aborted) {
+        return
+      }
+      
+      // Small delay on initial load to give backend time to start conversion
+      if (isInitialLoad && retryCount === 0) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+        if (abortController.signal.aborted) return
+      }
       
       setLoading(true)
       setError(null)
@@ -104,6 +120,7 @@ export function DocumentPreview({
           headers: {
             'x-student-id': studentId,
           },
+          signal: abortController.signal,
         })
 
         if (!response.ok) {
@@ -127,6 +144,55 @@ export function DocumentPreview({
             }
           }
           
+          // Retry logic for server errors (backend might be converting file)
+          // Only retry for 500/503 errors and not for specific LibreOffice errors
+          // Backend has 30s timeout for LibreOffice conversion, so we retry up to 5 times with increasing delays
+          const isRetryableError = 
+            (response.status === 500 || response.status === 503) &&
+            !errorMessage.includes('exit code 1') &&
+            !errorMessage.includes('không thể convert') &&
+            !errorMessage.includes('không được cài đặt') &&
+            !errorMessage.includes('chưa được cài đặt') &&
+            !errorMessage.includes('timeout') && // Don't retry if backend already timed out
+            retryCount < 5 // Max 5 retries (total ~28 seconds)
+          
+          if (isRetryableError) {
+            // Check if aborted before retry
+            if (abortController.signal.aborted) {
+              return
+            }
+            
+            // Wait before retry with exponential backoff: 2s, 3s, 5s, 8s, 10s
+            // This gives backend up to ~28 seconds to convert (backend timeout is 30s)
+            const delays = [2000, 3000, 5000, 8000, 10000]
+            const delay = delays[retryCount] || 10000
+            console.log(`[DocumentPreview] Backend might be converting file. Retrying in ${delay}ms (attempt ${retryCount + 1}/5)...`)
+            
+            // Wait with abort check
+            await new Promise<void>((resolve, reject) => {
+              const timeoutId = setTimeout(() => {
+                if (!abortController.signal.aborted) {
+                  resolve()
+                } else {
+                  reject(new Error('Aborted'))
+                }
+              }, delay)
+              
+              abortController.signal.addEventListener('abort', () => {
+                clearTimeout(timeoutId)
+                reject(new Error('Aborted'))
+              })
+            }).catch(() => {
+              // Aborted, stop retrying
+              return
+            })
+            
+            // Check again before retry
+            if (!abortController.signal.aborted) {
+              return loadPDF(retryCount + 1, false)
+            }
+          }
+          
           // Special handling for LibreOffice errors
           if (response.status === 500 && errorMessage.includes('LibreOffice')) {
             if (errorMessage.includes('exit code 1') || errorMessage.includes('không thể convert')) {
@@ -143,13 +209,16 @@ export function DocumentPreview({
             errorMessage = 'Không tìm thấy file để preview. File có thể đã bị xóa hoặc không tồn tại.'
           }
           
-          // Log error for debugging
-          console.error('[DocumentPreview] Error loading PDF:', {
-            status: response.status,
-            errorMessage,
-            documentId,
-            fileName,
-          })
+          // Only log error after all retries failed
+          if (!isRetryableError) {
+            console.error('[DocumentPreview] Error loading PDF:', {
+              status: response.status,
+              errorMessage,
+              documentId,
+              fileName,
+              retryCount,
+            })
+          }
           
           // Set error and stop loading - don't throw to avoid unhandled errors
           setError(errorMessage)
@@ -185,6 +254,16 @@ export function DocumentPreview({
         setLoading(false)
         setError(null) // Clear any previous errors
       } catch (err) {
+        // Ignore abort errors (component unmounted or documentId changed)
+        if (err instanceof Error && (err.name === 'AbortError' || err.message === 'Aborted')) {
+          return
+        }
+        
+        // Ignore if aborted
+        if (abortController.signal.aborted) {
+          return
+        }
+        
         console.error('Error loading PDF:', err)
         
         // Cancel any render tasks on error
@@ -199,9 +278,15 @@ export function DocumentPreview({
       }
     }
 
-    loadPDF()
+    loadPDF(0, true) // Start with initial load flag to give backend time
 
     return () => {
+      // Abort any ongoing fetch requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
+      
       // Cleanup: cancel any render tasks and clear state
       if (renderTaskRef.current) {
         renderTaskRef.current.cancel()

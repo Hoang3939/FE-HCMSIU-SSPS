@@ -6,6 +6,8 @@ import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileText, Sparkles } from "lucide-react"
+import { PaymentDialog } from "@/components/payment-dialog"
+import { toast } from "sonner"
 
 interface PricingTier {
   pages: number
@@ -17,6 +19,7 @@ interface PricingTier {
 export default function BuyPagesPage() {
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null)
   const [currentBalance, setCurrentBalance] = useState(0)
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
 
   const pricingTiers: PricingTier[] = [
     { pages: 10, price: 5000, pricePerPage: 500 },
@@ -37,12 +40,24 @@ export default function BuyPagesPage() {
     loadBalance()
   }, [])
 
+  const handlePaymentSuccess = async (pages: number) => {
+    // Update balance after successful payment
+    // Backend đã cộng trang vào database rồi, chỉ cần reload balance từ API
+    try {
+      const balanceData = await getUserBalance()
+      setCurrentBalance(balanceData.balancePages) // Không cộng thêm vì backend đã cộng rồi
+      toast.success(`Đã cộng ${pages} trang vào tài khoản!`)
+    } catch (error) {
+      console.error('Error updating balance:', error)
+      // Fallback: cộng vào state nếu không load được từ API
+      setCurrentBalance((prev) => prev + pages)
+      toast.success(`Đã cộng ${pages} trang vào tài khoản!`)
+    }
+  }
+
   const handlePayment = () => {
     if (selectedTier) {
-      // In real app, this would redirect to SIUPay payment gateway
-      console.log("Redirecting to SIUPay for:", selectedTier)
-      // Simulate payment redirect
-      alert(`Chuyển hướng đến SIUPay để thanh toán ${selectedTier.price.toLocaleString()} ₫`)
+      setPaymentDialogOpen(true)
     }
   }
 
@@ -122,6 +137,14 @@ export default function BuyPagesPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Payment Dialog */}
+        <PaymentDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          selectedTier={selectedTier}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
 
         {/* Info Section */}
         <Card className="mt-8">
