@@ -64,37 +64,95 @@ class AuthAPI {
   }
 
   /**
-   * Đăng xuất
-   * Refresh token sẽ được xóa tự động bởi server (HttpOnly cookie)
+   * Đăng xuất - Xóa hoàn toàn tất cả authentication data
+   * 
+   * Flow:
+   * 1. Reset interceptor state và clear accessToken ngay lập tức
+   * 2. Gọi Next.js API route (/api/auth/logout) để xóa HttpOnly cookie ở server-side
+   * 3. ĐỢI API call hoàn thành để đảm bảo cookie được xóa
+   * 4. Clear tất cả auth state ở client-side (localStorage, Zustand store)
+   * 5. Redirect về /login với full page reload và query param để bypass middleware check
+   * 
+   * CRITICAL: Phải đợi API call hoàn thành trước khi redirect
+   * để đảm bảo cookie được xóa ở server-side
    */
   async logout(): Promise<void> {
-    // Reset interceptor state first to avoid retry with old token
-    resetInterceptorState();
+    console.log('[AuthAPI] ========================================');
+    console.log('[AuthAPI] 🚪 Starting logout process...');
     
-    // Clear accessToken immediately to prevent interceptor from adding it to request
-    useAuthStore.getState().setAccessToken(null);
-    
-    try {
-      // Call logout API to delete refresh token cookie on server
-      // Use fetch directly to avoid interceptor adding Authorization header
-      await fetch(
-        `${API_BASE_URL}/api${API_ENDPOINTS.auth.logout}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include', // Send cookies
-          body: JSON.stringify({}),
-        }
-      );
-    } catch (error) {
-      // Still clear auth state even if API call fails
-      console.error('[AuthAPI] Logout error:', error);
-    } finally {
-      // Clear all auth state on client
+    if (typeof window === 'undefined') {
+      // SSR - just clear state
+      resetInterceptorState();
+      useAuthStore.getState().setAccessToken(null);
       useAuthStore.getState().clearAuth();
+      return;
     }
+    
+    // CLIENT-SIDE: Clear state first, then redirect immediately
+    // Step 1: Set flag to prevent other code from overriding
+    sessionStorage.setItem('__logout_in_progress__', 'true');
+    
+    // Step 2: Clear state synchronously (before redirect)
+    resetInterceptorState();
+    useAuthStore.getState().setAccessToken(null);
+    useAuthStore.getState().clearAuth();
+    
+    // Clear localStorage
+    try {
+      localStorage.removeItem('auth-storage');
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('auth') || key.includes('token') || key.includes('user'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      console.log('[AuthAPI] ✅ State cleared');
+    } catch (error) {
+      console.error('[AuthAPI] Error clearing storage:', error);
+    }
+    
+    // Step 3: CRITICAL - Build redirect URL with query param
+    // Use absolute URL to prevent any routing issues
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(7);
+    const loginUrl = `${window.location.origin}/login?logout=success&t=${timestamp}&r=${randomId}`;
+    
+    console.log('[AuthAPI] ========================================');
+    console.log('[AuthAPI] 🔄 FORCING redirect to:', loginUrl);
+    console.log('[AuthAPI] ⚠️ URL MUST include ?logout=success query param');
+    console.log('[AuthAPI] Current URL:', window.location.href);
+    console.log('[AuthAPI] ========================================');
+    
+    // Step 4: CRITICAL - Redirect IMMEDIATELY using multiple methods
+    // Method 1: window.location.href (synchronous, most reliable)
+    window.location.href = loginUrl;
+    
+    // Method 2: Force redirect again after 0ms (safety net)
+    // This ensures redirect happens even if something tries to prevent it
+    setTimeout(() => {
+      const currentUrl = window.location.href;
+      const hasLogoutParam = currentUrl.includes('logout=success');
+      
+      if (!hasLogoutParam) {
+        console.error('[AuthAPI] ❌ CRITICAL: Redirect failed! Current URL:', currentUrl);
+        console.error('[AuthAPI] ❌ Missing logout=success param! Forcing redirect again...');
+        window.location.replace(loginUrl);
+      } else {
+        console.log('[AuthAPI] ✅ Redirect successful, logout param present');
+      }
+    }, 0);
+    
+    // Call API in background (don't await - redirect already happened)
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      cache: 'no-store',
+    }).catch(error => {
+      console.error('[AuthAPI] Background logout API error:', error);
+    });
   }
 
   /**

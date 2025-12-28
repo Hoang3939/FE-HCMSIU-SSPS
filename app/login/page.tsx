@@ -1,51 +1,77 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
 import { authAPI } from "@/lib/api/auth-api"
 import { useToast } from "@/hooks/use-toast"
+import { toast as sonnerToast } from "sonner"
+import { getRedirectUrlAfterLogin } from "@/lib/utils/auth-redirect"
 
-export default function LoginPage() {
+function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
 
+  /**
+   * Xử lý logic đăng nhập và điều hướng dựa trên role
+   * Kịch bản 3: Xử lý tại trang Đăng nhập (Login Flow)
+   */
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
 
     try {
-      // Gọi API đăng nhập
+      // Gọi API đăng nhập xuống Backend
       const response = await authAPI.login({
         username: username.trim(),
         password,
       })
 
-      // Hiển thị thông báo thành công
+      // Lấy redirect URL từ query params (nếu có)
+      const redirectUrl = searchParams.get('redirect')
+      const role = response.user.role
+
+      console.log('[Login] Login successful, handling redirect:', {
+        role,
+        redirectUrl,
+        userID: response.user.userID,
+      })
+
+      // Xử lý trường hợp đặc biệt: Student đăng nhập với redirect URL là /admin
+      if (role === "STUDENT" && redirectUrl && redirectUrl.startsWith("/admin")) {
+        // STUDENT cố truy cập admin URL sau khi đăng nhập
+        // Hiển thị thông báo lỗi: "Bạn không đủ quyền hạn"
+        sonnerToast.error("Bạn không đủ quyền hạn", {
+          description: "Chỉ quản trị viên mới có thể truy cập trang quản lý.",
+          duration: 5000,
+        })
+        
+        // Redirect về Student Dashboard ngay lập tức
+        router.push("/dashboard")
+        return
+      }
+
+      // Các trường hợp khác: Hiển thị thông báo thành công
       toast({
         title: "Đăng nhập thành công",
         description: `Chào mừng ${response.user.username}!`,
       })
 
-      // Redirect dựa trên role
-      const role = response.user.role
-      if (role === "ADMIN" || role === "SPSO") {
-        router.push("/admin/dashboard")
-      } else {
-        // Student và các role khác redirect đến trang upload
-        router.push("/upload")
-      }
+      // Sử dụng utility function để lấy URL redirect phù hợp
+      const finalRedirectUrl = getRedirectUrlAfterLogin(response.user, redirectUrl)
+      router.push(finalRedirectUrl)
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || err?.message || "Đăng nhập thất bại. Vui lòng thử lại."
       setError(errorMessage)
@@ -60,26 +86,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen" suppressHydrationWarning>
       {/* Left Side - Illustration */}
-      <div className="hidden flex-1 items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 lg:flex">
-        <div className="max-w-md space-y-8 p-8 sm:p-12">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black">
+      <div className="hidden flex-1 items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 lg:flex" suppressHydrationWarning>
+        <div className="max-w-md space-y-8 p-8 sm:p-12" suppressHydrationWarning>
+          <div className="flex items-center gap-3" suppressHydrationWarning>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black" suppressHydrationWarning>
               <span className="text-lg font-bold text-white">⊜</span>
             </div>
             <span className="text-xl font-bold">HCMSIU SSPS</span>
           </div>
-          <div>
+          <div suppressHydrationWarning>
             <h1 className="text-balance text-3xl font-bold leading-tight text-gray-900 sm:text-4xl">
               Đăng nhập vào
             </h1>
             <p className="mt-2 text-xl font-semibold text-gray-700 sm:text-2xl">HCMSIU SSPS</p>
           </div>
-          <div className="flex justify-center">
+          <div className="flex justify-center" suppressHydrationWarning>
             <img src="/images/image.png" alt="Student illustration" className="max-w-sm" />
           </div>
-          <div className="rounded-lg bg-white/50 p-4 text-sm text-gray-700">
+          <div className="rounded-lg bg-white/50 p-4 text-sm text-gray-700" suppressHydrationWarning>
             <p className="font-semibold">Xác thực qua HCMSIU SSO</p>
             <p className="mt-1">Sử dụng tài khoản sinh viên của bạn để đăng nhập</p>
           </div>
@@ -87,24 +113,24 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="flex flex-1 items-center justify-center bg-white p-6 sm:p-8">
-        <div className="w-full max-w-md space-y-8">
+      <div className="flex flex-1 items-center justify-center bg-white p-6 sm:p-8" suppressHydrationWarning>
+        <div className="w-full max-w-md space-y-8" suppressHydrationWarning>
           {/* Mobile Logo */}
-          <div className="flex items-center justify-center gap-3 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black">
+          <div className="flex items-center justify-center gap-3 lg:hidden" suppressHydrationWarning>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black" suppressHydrationWarning>
               <span className="text-lg font-bold text-white">⊜</span>
             </div>
             <span className="text-xl font-bold">HCMSIU SSPS</span>
           </div>
 
-          <div>
+          <div suppressHydrationWarning>
             <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">Đăng nhập</h2>
             <p className="mt-2 text-sm text-gray-600">Sử dụng tài khoản HCMSIU SSO</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-6" suppressHydrationWarning>
             {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-4 flex items-start gap-3">
+              <div className="rounded-lg bg-red-50 border border-red-200 p-4 flex items-start gap-3" suppressHydrationWarning>
                 <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-red-800">{error}</p>
@@ -188,6 +214,21 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center" suppressHydrationWarning>
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Đang tải...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }
 

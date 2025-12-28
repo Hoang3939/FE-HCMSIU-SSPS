@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -30,8 +31,24 @@ import {
 import { Printer, Plus, Edit, Trash2, Loader2, AlertCircle, Map, X } from "lucide-react"
 import { printerAPI, type Printer as PrinterType } from "@/lib/api/printer-api"
 import { useToast } from "@/hooks/use-toast"
-import { PrinterMap } from "@/components/admin/printer-map"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+// Dynamic import PrinterMap với ssr: false để tránh lỗi "window is not defined"
+// react-leaflet cần chạy ở client-side, không thể render ở server-side
+const PrinterMap = dynamic(
+  () => import("@/components/admin/printer-map").then((mod) => ({ default: mod.PrinterMap })),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[600px] items-center justify-center rounded-lg border border-[#2a2a2a] bg-[#1a1a1a]">
+        <div className="text-center text-gray-400">
+          <div className="mb-2 text-lg">Đang tải bản đồ...</div>
+          <div className="text-sm">Vui lòng đợi...</div>
+        </div>
+      </div>
+    )
+  }
+)
 
 interface PrinterFormData {
   Name: string

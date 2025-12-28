@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { 
@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/lib/stores/auth-store"
 import { useRouter } from "next/navigation"
 import { authAPI } from "@/lib/api/auth-api"
+import { toast } from "sonner"
+import { useHydrated } from "@/hooks/use-hydrated"
 
 const menuItems = [
   {
@@ -61,20 +63,146 @@ export default function AdminLayout({
   const pathname = usePathname()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const { clearAuth, user } = useAuthStore()
+  const { clearAuth, user, isAuthenticated } = useAuthStore()
+  const [isChecking, setIsChecking] = useState(true)
+  const isHydrated = useHydrated()
+
+  /**
+   * Route Protection Logic - Strict If-Else If-Else Chain
+   * 
+   * Goal: Protect the /admin/* routes
+   * 
+   * Implementation Logic (EXACT ORDER):
+   * 
+   * Step 0: Hydration Check (BLOCK LOGIC)
+   *   - IF !isHydrated (store not ready), do NOT run any redirect logic
+   *   - Just show the Loading Spinner (return the loading UI)
+   * 
+   * Step 1: Get User Session
+   *   - Retrieve the current user's authentication status and role
+   *   - Only proceed AFTER isHydrated is true
+   * 
+   * Step 2: Check Authentication (Priority #1)
+   *   - IF the user is NOT authenticated (logged out/no session) AND tries to access /admin/*
+   *   - THEN Redirect to /login. (Do NOT redirect to /dashboard)
+   * 
+   * Step 3: Check Authorization (Priority #2)
+   *   - ELSE IF the user IS authenticated BUT has the role 'student' AND tries to access /admin/*
+   *   - THEN Redirect to /dashboard
+   *   - AND Trigger a 'Permission Denied' notification/toast. (Do NOT redirect to /login)
+   * 
+   * Step 4: Allow Access
+   *   - ELSE (User is Authenticated AND is Admin)
+   *   - THEN Allow access to the route
+   */
+  useEffect(() => {
+    // ============================================
+    // STEP 0: Hydration Check (BLOCK LOGIC)
+    // ============================================
+    // IF !isHydrated (store not ready), do NOT run any redirect logic
+    // Just show the Loading Spinner (return the loading UI)
+    if (!isHydrated) {
+      console.log('[AdminLayout] Step 0: Store not hydrated yet, waiting...')
+      setIsChecking(true)
+      return // Block all logic until hydrated
+    }
+
+    // ============================================
+    // STEP 1: Get User Session
+    // ============================================
+    // Retrieve the current user's authentication status and role
+    // Only proceed AFTER isHydrated is true
+    const userIsAuthenticated = isAuthenticated && user !== null
+    const userRole = user?.role
+
+    // ============================================
+    // STEP 2: Check Authentication (Priority #1)
+    // ============================================
+    // IF the user is NOT authenticated (logged out/no session) AND tries to access /admin/*
+    // THEN Redirect to /login. (Do NOT redirect to /dashboard)
+    if (!userIsAuthenticated) {
+      console.log('[AdminLayout] Step 2: User NOT authenticated, redirecting to /login')
+      const loginUrl = `/login?redirect=${encodeURIComponent(pathname)}`
+      router.replace(loginUrl)
+      setIsChecking(true) // Keep checking state while redirecting
+      return
+    }
+    // ============================================
+    // STEP 3: Check Authorization (Priority #2)
+    // ============================================
+    // ELSE IF the user IS authenticated BUT has the role 'student' AND tries to access /admin/*
+    // THEN Redirect to /dashboard
+    // AND Trigger a 'Permission Denied' notification/toast. (Do NOT redirect to /login)
+    else if (userIsAuthenticated && userRole === 'STUDENT') {
+      console.warn('[AdminLayout] Step 3: Student (authenticated) attempted to access admin route:', {
+        userID: user?.userID,
+        email: user?.email,
+        path: pathname,
+      })
+      
+      // Trigger 'Permission Denied' notification/toast
+      toast.error("Bạn không có quyền truy cập", {
+        description: "Chỉ quản trị viên mới có thể truy cập khu vực quản trị.",
+        duration: 5000,
+      })
+      
+      // Redirect to /dashboard (NOT to /login)
+      router.replace("/dashboard")
+      setIsChecking(true) // Keep checking state while redirecting
+      return
+    }
+    // ============================================
+    // STEP 4: Allow Access
+    // ============================================
+    // ELSE (User is Authenticated AND is Admin)
+    // THEN Allow access to the route
+    else {
+      // User is authenticated AND has ADMIN role
+      console.log('[AdminLayout] Step 4: Admin user authenticated, allowing access')
+      setIsChecking(false)
+    }
+  }, [isAuthenticated, user, router, pathname, isHydrated])
+
+  // ============================================
+  // Loading UI Logic
+  // ============================================
+  // Show loading screen in these cases:
+  // 1. !isHydrated -> Store not ready yet (BLOCK LOGIC)
+  // 2. isChecking -> Still checking permissions or redirecting
+  // 3. !user -> No user data (should redirect to login)
+  // 4. user.role !== 'ADMIN' -> Not admin (should redirect to dashboard)
+  const shouldShowLoading = !isHydrated || isChecking || !user || user.role !== 'ADMIN'
+  
+  if (shouldShowLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black text-white" suppressHydrationWarning>
+        <div className="text-center">
+          <div className="mb-4 text-lg">Checking access permissions...</div>
+          <div className="text-sm text-gray-400">Please wait...</div>
+        </div>
+      </div>
+    )
+  }
 
   const handleLogout = async () => {
+    // CRITICAL: Call logout() which will redirect immediately
+    // Don't await - redirect happens synchronously inside logout()
+    // The function redirects immediately and returns, so nothing after this runs
     try {
-      // Gọi API logout để xóa refresh token cookie ở server
-      // authAPI.logout() đã xử lý clearAuth() bên trong
       await authAPI.logout()
+      // This code should never execute because logout() redirects immediately
+      console.warn('[AdminLayout] Logout returned without redirecting - this should not happen!')
     } catch (error) {
-      console.error('Logout error:', error)
-      // Đảm bảo clear auth state dù có lỗi
-      clearAuth()
-    } finally {
-      // Redirect về login
-      router.push("/login")
+      // This catch block should also never execute because redirect happens first
+      console.error('[AdminLayout] Logout error (redirect should have happened):', error)
+      
+      // Fallback redirect - MUST include query param to prevent middleware redirect loop
+      if (typeof window !== 'undefined') {
+        const timestamp = Date.now()
+        const loginUrl = `/login?logout=success&t=${timestamp}`
+        console.log('[AdminLayout] Fallback redirect to:', loginUrl)
+        window.location.href = loginUrl
+      }
     }
   }
 
