@@ -43,7 +43,8 @@ export default function LoginPage() {
       if (role === "ADMIN" || role === "SPSO") {
         router.push("/admin/dashboard")
       } else {
-        router.push("/dashboard")
+        // Student và các role khác redirect đến trang upload
+        router.push("/upload")
       }
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || err?.message || "Đăng nhập thất bại. Vui lòng thử lại."

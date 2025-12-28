@@ -1,3 +1,7 @@
+// Import apiClient for authenticated requests
+import apiClient from './api/apiClient';
+import type { ApiResponse } from './types/api.types';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // Get student ID from localStorage (demo mode - không dùng login)
@@ -145,6 +149,74 @@ export async function createPrintJob(data: {
 // Get available printers
 export async function getAvailablePrinters() {
   return apiRequest('/api/printers/available');
+}
+
+// Get transaction history
+export async function getTransactionHistory(): Promise<{
+  success: boolean;
+  data: Array<{
+    transID: string;
+    date: string;
+    amount: number;
+    pagesAdded: number;
+    status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+    paymentMethod: string | null;
+    paymentRef: string | null;
+  }>;
+}> {
+  // Use apiClient which automatically handles token refresh
+  const response = await apiClient.get<ApiResponse<Array<{
+    transID: string;
+    date: string;
+    amount: number;
+    pagesAdded: number;
+    status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+    paymentMethod: string | null;
+    paymentRef: string | null;
+  }>>>('/history/transactions');
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || 'Không thể lấy lịch sử giao dịch');
+  }
+
+  return {
+    success: response.data.success,
+    data: response.data.data,
+  };
+}
+
+// Get print history
+export async function getPrintHistory(): Promise<{
+  success: boolean;
+  data: Array<{
+    jobID: string;
+    date: string;
+    documentName: string;
+    printerName: string;
+    pagesUsed: number;
+    status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+    cost: number;
+  }>;
+}> {
+  // Use apiClient which automatically handles token refresh
+  const response = await apiClient.get<ApiResponse<Array<{
+    jobID: string;
+    date: string;
+    documentName: string;
+    printerName: string;
+    pagesUsed: number;
+    status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+    cost: number;
+  }>>>('/history/prints');
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || 'Không thể lấy lịch sử in ấn');
+  }
+
+  return {
+    success: response.data.success,
+    data: response.data.data,
+  };
 }
 
 // Get user balance
