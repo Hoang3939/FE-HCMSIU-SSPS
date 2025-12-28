@@ -17,7 +17,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
-import { Printer, Plus, Edit, Trash2, Loader2, AlertCircle, Map } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Printer, Plus, Edit, Trash2, Loader2, AlertCircle, Map, X } from "lucide-react"
 import { printerAPI, type Printer as PrinterType } from "@/lib/api/printer-api"
 import { useToast } from "@/hooks/use-toast"
 import { PrinterMap } from "@/components/admin/printer-map"
@@ -44,6 +54,9 @@ export default function PrinterManagementPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingPrinter, setEditingPrinter] = useState<PrinterType | null>(null)
   const [saving, setSaving] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [printerToDelete, setPrinterToDelete] = useState<PrinterType | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [formData, setFormData] = useState<PrinterFormData>({
     Name: "",
     Brand: "",
@@ -179,14 +192,20 @@ export default function PrinterManagementPage() {
     }
   }
 
-  const handleDeletePrinter = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa máy in này?")) {
-      return
-    }
+  const handleDeleteClick = (printer: PrinterType) => {
+    setPrinterToDelete(printer)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleDeletePrinter = async () => {
+    if (!printerToDelete) return
 
     try {
-      await printerAPI.deletePrinter(id)
-      setPrinters(printers.filter((p) => p.PrinterID !== id))
+      setDeleting(true)
+      await printerAPI.deletePrinter(printerToDelete.PrinterID)
+      setPrinters(printers.filter((p) => p.PrinterID !== printerToDelete.PrinterID))
+      setIsDeleteDialogOpen(false)
+      setPrinterToDelete(null)
       toast({
         title: "Thành công",
         description: "Xóa máy in thành công",
@@ -198,6 +217,8 @@ export default function PrinterManagementPage() {
         description: errorMessage,
         variant: "destructive",
       })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -241,13 +262,19 @@ export default function PrinterManagementPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-6 bg-[#1a1a1a] border-[#2a2a2a]">
-          <TabsTrigger value="list" className="data-[state=active]:bg-[#2a2a2a]">
-            <Printer className="mr-2 h-4 w-4" />
+        <TabsList className="mb-6 bg-[#1a1a1a] border-[#2a2a2a] w-full">
+          <TabsTrigger 
+            value="list" 
+            className="data-[state=active]:bg-[#3a3a3a] data-[state=active]:text-white data-[state=active]:border-[#4a4a4a] text-gray-400 border border-transparent px-6 py-2.5 text-base flex-1"
+          >
+            <Printer className="mr-2 h-5 w-5" />
             Danh sách
           </TabsTrigger>
-          <TabsTrigger value="map" className="data-[state=active]:bg-[#2a2a2a]">
-            <Map className="mr-2 h-4 w-4" />
+          <TabsTrigger 
+            value="map" 
+            className="data-[state=active]:bg-[#3a3a3a] data-[state=active]:text-white data-[state=active]:border-[#4a4a4a] text-gray-400 border border-transparent px-6 py-2.5 text-base flex-1"
+          >
+            <Map className="mr-2 h-5 w-5" />
             Bản đồ
           </TabsTrigger>
         </TabsList>
@@ -260,18 +287,22 @@ export default function PrinterManagementPage() {
         </TabsContent>
 
         <TabsContent value="list">
-          <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Quản lý máy in</h1>
-          <p className="text-gray-400">Thêm, sửa, xóa và quản lý trạng thái máy in</p>
-        </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={handleAddPrinter} className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white">
-                <Plus className="mr-2 h-4 w-4" />
-                Thêm máy in
-              </Button>
-            </DialogTrigger>
+          <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white mb-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-white font-semibold text-xl">Danh sách máy in</CardTitle>
+                  <CardDescription className="text-gray-400 mt-1">
+                    Quản lý và theo dõi tất cả các máy in trong hệ thống
+                  </CardDescription>
+                </div>
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button onClick={handleAddPrinter} className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Thêm máy in
+                    </Button>
+                  </DialogTrigger>
             <DialogContent className="max-w-2xl bg-[#1a1a1a] border-[#2a2a2a] text-white">
               <DialogHeader>
                 <DialogTitle className="text-white">{editingPrinter ? "Sửa máy in" : "Thêm máy in mới"}</DialogTitle>
@@ -353,7 +384,7 @@ export default function PrinterManagementPage() {
                       setFormData({ ...formData, Status: value })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -370,6 +401,7 @@ export default function PrinterManagementPage() {
                     id="isActive"
                     checked={formData.IsActive}
                     onCheckedChange={(checked) => setFormData({ ...formData, IsActive: checked })}
+                    className="data-[state=checked]:bg-[#3a82f6] data-[state=checked]:border-[#3a82f6]"
                   />
                   <Label htmlFor="isActive" className="cursor-pointer">
                     Kích hoạt máy in
@@ -377,7 +409,12 @@ export default function PrinterManagementPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsDialogOpen(false)} 
+                  disabled={saving}
+                  className="border-[#2a2a2a] bg-transparent text-white hover:bg-[#2a2a2a] hover:text-white"
+                >
                   Hủy
                 </Button>
                 <Button 
@@ -391,7 +428,9 @@ export default function PrinterManagementPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
+            </div>
+          </CardHeader>
+        </Card>
 
         {/* Error Message */}
         {error && (
@@ -494,7 +533,7 @@ export default function PrinterManagementPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 border-[#2a2a2a] text-gray-300 hover:bg-[#2a2a2a] hover:text-white"
+                      className="flex-1 border-[#2a2a2a] bg-white text-[#1a1a1a] hover:bg-gray-100 hover:text-[#0a0a0a]"
                       onClick={() => handleEditPrinter(printer)}
                     >
                       <Edit className="mr-2 h-4 w-4" />
@@ -504,7 +543,7 @@ export default function PrinterManagementPage() {
                       variant="outline"
                       size="sm"
                       className="flex-1 border-red-900/50 text-red-400 hover:bg-red-900/20 hover:text-red-300"
-                      onClick={() => handleDeletePrinter(printer.PrinterID)}
+                      onClick={() => handleDeleteClick(printer)}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Xóa
@@ -517,6 +556,53 @@ export default function PrinterManagementPage() {
         )}
         </TabsContent>
       </Tabs>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="bg-[#1a1a1a] border-[#2a2a2a] text-white max-w-md">
+          <div className="relative">
+            {/* Close Icon */}
+            <button
+              onClick={() => setIsDeleteDialogOpen(false)}
+              className="absolute top-0 right-0 text-gray-400 hover:text-white transition-colors disabled:opacity-50 disabled:pointer-events-none z-10"
+              disabled={deleting}
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white font-bold text-lg pr-8">
+                Xác nhận xóa máy in
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-gray-400 text-sm mt-2">
+                Bạn có chắc chắn muốn xóa máy in <span className="font-semibold text-white">{printerToDelete?.Name}</span> không? Hành động này không thể hoàn tác.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                className="border-[#2a2a2a] bg-transparent text-white hover:bg-[#2a2a2a] hover:text-white"
+                disabled={deleting}
+              >
+                Hủy
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeletePrinter}
+                className="bg-[#7f1d1d] hover:bg-[#991b1b] text-white border-0"
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang xóa...
+                  </>
+                ) : (
+                  "Xác nhận xóa"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
