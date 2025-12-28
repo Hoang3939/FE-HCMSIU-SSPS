@@ -17,9 +17,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
-import { Printer, Plus, Edit, Trash2, Loader2, AlertCircle } from "lucide-react"
+import { Printer, Plus, Edit, Trash2, Loader2, AlertCircle, Map } from "lucide-react"
 import { printerAPI, type Printer as PrinterType } from "@/lib/api/printer-api"
 import { useToast } from "@/hooks/use-toast"
+import { PrinterMap } from "@/components/admin/printer-map"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface PrinterFormData {
   Name: string
@@ -38,6 +40,7 @@ export default function PrinterManagementPage() {
   const [printers, setPrinters] = useState<PrinterType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("list")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingPrinter, setEditingPrinter] = useState<PrinterType | null>(null)
   const [saving, setSaving] = useState(false)
@@ -64,8 +67,11 @@ export default function PrinterManagementPage() {
       setError(null)
       const response = await printerAPI.getPrinters({ limit: 100 })
       setPrinters(response.data)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Không thể tải danh sách máy in"
+    } catch (err: any) {
+      console.error("Error loading printers:", err)
+      const errorMessage = err?.response?.data?.message || 
+                          err?.message || 
+                          "Không thể tải danh sách máy in"
       setError(errorMessage)
       toast({
         title: "Lỗi",
@@ -123,15 +129,16 @@ export default function PrinterManagementPage() {
       setSaving(true)
       if (editingPrinter) {
         // Update existing printer
+        const locationID = formData.LocationID?.trim();
         const updated = await printerAPI.updatePrinter(editingPrinter.PrinterID, {
           Name: formData.Name,
-          Brand: formData.Brand || undefined,
-          Model: formData.Model || undefined,
-          Description: formData.Description || undefined,
+          Brand: formData.Brand?.trim() || undefined,
+          Model: formData.Model?.trim() || undefined,
+          Description: formData.Description?.trim() || undefined,
           Status: formData.Status,
-          IPAddress: formData.IPAddress || undefined,
-          CUPSPrinterName: formData.CUPSPrinterName || undefined,
-          LocationID: formData.LocationID.trim() || null,
+          IPAddress: formData.IPAddress?.trim() || undefined,
+          CUPSPrinterName: formData.CUPSPrinterName?.trim() || undefined,
+          LocationID: locationID && locationID.length > 0 ? locationID : null,
           IsActive: formData.IsActive,
         })
         setPrinters(printers.map((p) => (p.PrinterID === editingPrinter.PrinterID ? updated : p)))
@@ -141,15 +148,16 @@ export default function PrinterManagementPage() {
         })
       } else {
         // Create new printer
+        const locationID = formData.LocationID?.trim();
         const created = await printerAPI.createPrinter({
           Name: formData.Name,
-          Brand: formData.Brand || undefined,
-          Model: formData.Model || undefined,
-          Description: formData.Description || undefined,
+          Brand: formData.Brand?.trim() || undefined,
+          Model: formData.Model?.trim() || undefined,
+          Description: formData.Description?.trim() || undefined,
           Status: formData.Status,
-          IPAddress: formData.IPAddress || undefined,
-          CUPSPrinterName: formData.CUPSPrinterName || undefined,
-          LocationID: formData.LocationID.trim() || undefined,
+          IPAddress: formData.IPAddress?.trim() || undefined,
+          CUPSPrinterName: formData.CUPSPrinterName?.trim() || undefined,
+          LocationID: locationID && locationID.length > 0 ? locationID : undefined,
           IsActive: formData.IsActive,
         })
         setPrinters([...printers, created])
@@ -227,7 +235,32 @@ export default function PrinterManagementPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-white mb-2">Quản lý máy in</h1>
+        <p className="text-gray-400">Thêm, sửa, xóa và quản lý trạng thái máy in</p>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-6 bg-[#1a1a1a] border-[#2a2a2a]">
+          <TabsTrigger value="list" className="data-[state=active]:bg-[#2a2a2a]">
+            <Printer className="mr-2 h-4 w-4" />
+            Danh sách
+          </TabsTrigger>
+          <TabsTrigger value="map" className="data-[state=active]:bg-[#2a2a2a]">
+            <Map className="mr-2 h-4 w-4" />
+            Bản đồ
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="map">
+          <PrinterMap 
+            printers={[]}
+            onLocationUpdate={loadPrinters}
+          />
+        </TabsContent>
+
+        <TabsContent value="list">
+          <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Quản lý máy in</h1>
           <p className="text-gray-400">Thêm, sửa, xóa và quản lý trạng thái máy in</p>
@@ -482,6 +515,8 @@ export default function PrinterManagementPage() {
             ))}
           </div>
         )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -1,6 +1,7 @@
+import axios from 'axios';
 import apiClient, { resetInterceptorState } from './apiClient';
 import { API_ENDPOINTS, API_BASE_URL } from '../api-config';
-import type { ApiResponse, LoginResponse } from '../types/api.types';
+import type { ApiResponse, LoginResponse, RefreshTokenResponse } from '../types/api.types';
 import { useAuthStore } from '../stores/auth-store';
 
 /**
@@ -21,13 +22,13 @@ class AuthAPI {
    * @returns Access token và user info
    */
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    // Reset interceptor state trước khi login để tránh xung đột với token cũ
+    // Reset interceptor state before login to avoid conflicts with old tokens
     resetInterceptorState();
     
-    // Clear auth state cũ trước khi login
+    // Clear old auth state before login
     useAuthStore.getState().clearAuth();
     
-    // Sử dụng fetch trực tiếp để tránh interceptor thêm Authorization header cũ
+    // Use fetch directly to avoid interceptor adding old Authorization header
     const response = await fetch(
       `${API_BASE_URL}/api${API_ENDPOINTS.auth.login}`,
       {
@@ -35,28 +36,31 @@ class AuthAPI {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
+        credentials: 'include', // Send cookies
         body: JSON.stringify(credentials),
       }
     );
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Đăng nhập thất bại' }));
+      const errorData = await response.json().catch(() => ({ 
+        message: 'Đăng nhập thất bại' 
+      }));
       throw new Error(errorData.message || 'Đăng nhập thất bại');
     }
 
     const data: ApiResponse<LoginResponse> = await response.json();
 
-    if (data.success && data.data) {
-      const { token, user } = data.data;
-      
-      // Lưu accessToken và user vào store
-      useAuthStore.getState().setAuth(token, user);
-      
-      return data.data;
+    if (!data.success || !data.data) {
+      throw new Error(data.message || 'Đăng nhập thất bại');
     }
 
-    throw new Error(data.message || 'Đăng nhập thất bại');
+    const { token, user } = data.data;
+    
+    // Save accessToken and user to store
+    // Refresh token is stored in HttpOnly cookie automatically by server
+    useAuthStore.getState().setAuth(token, user);
+    
+    return data.data;
   }
 
   /**
@@ -64,15 +68,15 @@ class AuthAPI {
    * Refresh token sẽ được xóa tự động bởi server (HttpOnly cookie)
    */
   async logout(): Promise<void> {
-    // Reset interceptor state trước để tránh retry với token cũ
+    // Reset interceptor state first to avoid retry with old token
     resetInterceptorState();
     
-    // Clear accessToken ngay lập tức để tránh interceptor thêm vào request
+    // Clear accessToken immediately to prevent interceptor from adding it to request
     useAuthStore.getState().setAccessToken(null);
     
     try {
-      // Gọi API logout để xóa refresh token cookie ở server
-      // Sử dụng fetch trực tiếp để tránh interceptor thêm Authorization header
+      // Call logout API to delete refresh token cookie on server
+      // Use fetch directly to avoid interceptor adding Authorization header
       await fetch(
         `${API_BASE_URL}/api${API_ENDPOINTS.auth.logout}`,
         {
@@ -80,38 +84,49 @@ class AuthAPI {
           headers: {
             'Content-Type': 'application/json',
           },
-          credentials: 'include',
+          credentials: 'include', // Send cookies
           body: JSON.stringify({}),
         }
       );
     } catch (error) {
-      // Vẫn xóa auth state dù API có lỗi
-      console.error('Logout error:', error);
+      // Still clear auth state even if API call fails
+      console.error('[AuthAPI] Logout error:', error);
     } finally {
-      // Xóa toàn bộ auth state ở client
+      // Clear all auth state on client
       useAuthStore.getState().clearAuth();
     }
   }
 
   /**
-   * Refresh token (thường không cần gọi trực tiếp, đã được xử lý tự động bởi interceptor)
-   * Chỉ dùng khi cần refresh token thủ công
+   * Refresh token manually (usually not needed, handled automatically by interceptor)
+   * Only use when you need to refresh token manually
    */
   async refreshToken(): Promise<string> {
-    const response = await apiClient.post<ApiResponse<{ token: string }>>(
-      API_ENDPOINTS.auth.refreshToken,
-      {}
-    );
+    try {
+      const response = await axios.post<ApiResponse<RefreshTokenResponse>>(
+        `${API_BASE_URL}/api${API_ENDPOINTS.auth.refreshToken}`,
+        {},
+        {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-    if (response.data.success && response.data.data?.token) {
-      const newToken = response.data.data.token;
-      useAuthStore.getState().setAccessToken(newToken);
-      return newToken;
+      if (response.data.success && response.data.data?.token) {
+        const newToken = response.data.data.token;
+        useAuthStore.getState().setAccessToken(newToken);
+        return newToken;
+      }
+
+      throw new Error('Không thể làm mới token');
+    } catch (error) {
+      // Clear auth on refresh failure
+      useAuthStore.getState().clearAuth();
+      throw error;
     }
-
-    throw new Error('Không thể làm mới token');
   }
 }
 
 export const authAPI = new AuthAPI();
-

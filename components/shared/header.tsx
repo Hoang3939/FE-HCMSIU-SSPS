@@ -25,6 +25,7 @@ export function Header({ userRole = "student", balance = 50, userName = "Nguyễ
   const studentNav = [
     { href: "/dashboard", label: "Trang chủ" },
     { href: "/upload", label: "Tải lên & In" },
+    { href: "/printers", label: "Máy in" },
     { href: "/history", label: "Lịch sử" },
     { href: "/buy-pages", label: "Mua trang" },
   ]

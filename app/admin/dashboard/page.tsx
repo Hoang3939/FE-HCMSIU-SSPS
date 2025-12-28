@@ -24,9 +24,19 @@ export default function AdminDashboard() {
       ])
       setStats(statsData)
       setActivities(activitiesData)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading dashboard data:", error)
-      toast.error("Không thể tải dữ liệu dashboard")
+      
+      // Provide more specific error messages
+      if (error?.message?.includes('Cannot connect to backend server')) {
+        toast.error("Không thể kết nối đến server. Vui lòng kiểm tra backend server có đang chạy không.")
+      } else if (error?.response?.status === 401) {
+        toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.")
+      } else if (error?.response?.status === 403) {
+        toast.error("Bạn không có quyền truy cập trang này.")
+      } else {
+        toast.error("Không thể tải dữ liệu dashboard: " + (error?.message || "Lỗi không xác định"))
+      }
     } finally {
       setLoading(false)
     }

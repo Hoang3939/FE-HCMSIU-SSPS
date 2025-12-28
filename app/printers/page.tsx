@@ -1,9 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import { Header } from "@/components/shared/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Printer, MapPin, CheckCircle, XCircle } from "lucide-react"
+import { PrinterMap } from "@/components/student/printer-map"
 
 interface PrinterInfo {
   id: string
@@ -17,6 +19,8 @@ interface PrinterInfo {
 }
 
 export default function PrintersPage() {
+  const [selectedPrinterId, setSelectedPrinterId] = useState<string | undefined>()
+
   const printers: PrinterInfo[] = [
     {
       id: "h6-101",
@@ -129,21 +133,13 @@ export default function PrintersPage() {
           ))}
         </div>
 
-        {/* Map Section Placeholder */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle>Bản đồ vị trí máy in</CardTitle>
-            <CardDescription>Xem vị trí các máy in trên bản đồ campus</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex h-64 items-center justify-center rounded-lg bg-gray-100">
-              <div className="text-center text-gray-500">
-                <MapPin className="mx-auto mb-2 h-12 w-12" />
-                <p>Bản đồ sẽ được tích hợp tại đây</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Map Section */}
+        <div className="mt-8">
+          <PrinterMap 
+            selectedPrinterId={selectedPrinterId}
+            onPrinterSelect={setSelectedPrinterId}
+          />
+        </div>
       </main>
     </div>
   )
