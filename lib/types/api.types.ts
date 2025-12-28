@@ -36,7 +36,7 @@ export interface LoginResponse {
     userID: string;
     username: string;
     email: string;
-    role: 'STUDENT' | 'ADMIN' | 'SPSO' | 'STAFF';
+    role: 'STUDENT' | 'ADMIN' | 'SPSO';
   };
 }
 

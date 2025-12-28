@@ -22,6 +22,12 @@ export const API_ENDPOINTS = {
       recentActivities: '/admin/dashboard/recent-activities',
     },
   },
+  users: {
+    list: '/admin/users',
+    create: '/admin/users',
+    update: (id: string) => `/admin/users/${id}`,
+    delete: (id: string) => `/admin/users/${id}`,
+  },
 } as const;
 
 

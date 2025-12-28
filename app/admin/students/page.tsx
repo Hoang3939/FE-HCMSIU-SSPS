@@ -1,138 +1,244 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, User, FileText, Calendar, Eye } from "lucide-react"
-import Link from "next/link"
+import { Search, UserPlus, Pencil, Lock, Eye, Loader2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
-import { format } from "date-fns"
-import { vi } from "date-fns/locale"
-
-interface Student {
-  id: string
-  name: string
-  email: string
-  balance: number
-  totalPrints: number
-  totalPages: number
-  lastPrintDate: string | null
-  status: "active" | "inactive"
-}
-
-interface StudentPrintHistory {
-  id: string
-  fileName: string
-  date: string
-  time: string
-  printer: string
-  pages: number
-  pageSize: "A4" | "A3"
-  status: "completed" | "failed"
-}
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { getAllUsers, createUser, updateUser, deleteUser, type UserDTO, type CreateUserDTO, type UpdateUserDTO } from "@/lib/api/user-api"
+import { toast } from "sonner"
 
 export default function StudentsManagementPage() {
+  const [users, setUsers] = useState<UserDTO[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
-  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<UserDTO | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const students: Student[] = [
-    {
-      id: "SV001",
-      name: "Nguyễn Văn A",
-      email: "sv001@student.hcmsiu.edu.vn",
-      balance: 50,
-      totalPrints: 24,
-      totalPages: 156,
-      lastPrintDate: "2024-12-05",
-      status: "active",
+  // Form cho tạo mới
+  const createForm = useForm<CreateUserDTO>({
+    defaultValues: {
+      username: "",
+      email: "",
+      password: "",
+      role: "STUDENT",
+      isActive: true,
     },
-    {
-      id: "SV002",
-      name: "Trần Thị B",
-      email: "sv002@student.hcmsiu.edu.vn",
-      balance: 120,
-      totalPrints: 18,
-      totalPages: 98,
-      lastPrintDate: "2024-12-04",
-      status: "active",
-    },
-    {
-      id: "SV003",
-      name: "Lê Văn C",
-      email: "sv003@student.hcmsiu.edu.vn",
-      balance: 0,
-      totalPrints: 5,
-      totalPages: 32,
-      lastPrintDate: "2024-11-28",
-      status: "active",
-    },
-    {
-      id: "SV004",
-      name: "Phạm Thị D",
-      email: "sv004@student.hcmsiu.edu.vn",
-      balance: 200,
-      totalPrints: 45,
-      totalPages: 320,
-      lastPrintDate: "2024-12-05",
-      status: "active",
-    },
-  ]
+    mode: "onChange",
+  })
 
-  const studentHistory: Record<string, StudentPrintHistory[]> = {
-    SV001: [
-      {
-        id: "1",
-        fileName: "Assignment_Final.pdf",
-        date: "2024-12-05",
-        time: "10:30",
-        printer: "Máy in H6-101",
-        pages: 20,
-        pageSize: "A4",
-        status: "completed",
-      },
-      {
-        id: "2",
-        fileName: "Report_Lab4.docx",
-        date: "2024-12-04",
-        time: "14:15",
-        printer: "Máy in Tòa Đức",
-        pages: 15,
-        pageSize: "A4",
-        status: "completed",
-      },
-    ],
+  // Form cho chỉnh sửa
+  const editForm = useForm<UpdateUserDTO>({
+    defaultValues: {
+      username: "",
+      email: "",
+      role: "STUDENT",
+      isActive: true,
+    },
+  })
+
+  // Fetch users từ API
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      const data = await getAllUsers()
+      setUsers(data)
+    } catch (error: any) {
+      console.error("Error fetching users:", error)
+      toast.error("Không thể tải danh sách người dùng", {
+        description: error.message || "Vui lòng thử lại sau",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const filteredStudents = students.filter(
-    (student) =>
-      student.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.email.toLowerCase().includes(searchQuery.toLowerCase())
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  // Xử lý tạo mới user
+  const handleCreateUser = async (data: CreateUserDTO) => {
+    // Validation
+    if (!data.username || !data.email || !data.password || !data.role) {
+      toast.error("Vui lòng điền đầy đủ thông tin bắt buộc")
+      return
+    }
+    if (data.password.length < 6) {
+      toast.error("Mật khẩu phải có ít nhất 6 ký tự")
+      return
+    }
+    const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i
+    if (!emailRegex.test(data.email)) {
+      toast.error("Email không hợp lệ")
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      await createUser(data)
+      toast.success("Tạo người dùng thành công")
+      setIsCreateDialogOpen(false)
+      createForm.reset()
+      fetchUsers()
+    } catch (error: any) {
+      console.error("Error creating user:", error)
+      toast.error("Không thể tạo người dùng", {
+        description: error.response?.data?.message || error.message || "Vui lòng thử lại sau",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Xử lý chỉnh sửa user
+  const handleEditUser = async (data: UpdateUserDTO) => {
+    if (!selectedUser) return
+
+    // Validation
+    if (!data.username || !data.email || !data.role) {
+      toast.error("Vui lòng điền đầy đủ thông tin bắt buộc")
+      return
+    }
+    if (data.password && data.password.length < 6) {
+      toast.error("Mật khẩu phải có ít nhất 6 ký tự")
+      return
+    }
+    const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i
+    if (!emailRegex.test(data.email)) {
+      toast.error("Email không hợp lệ")
+      return
+    }
+
+    // Nếu không có password mới, không gửi field password
+    const updateData: UpdateUserDTO = {
+      username: data.username,
+      email: data.email,
+      role: data.role,
+      isActive: data.isActive,
+    }
+    if (data.password && data.password.trim() !== "") {
+      updateData.password = data.password
+    }
+
+    try {
+      setIsSubmitting(true)
+      await updateUser(selectedUser.id, updateData)
+      toast.success("Cập nhật người dùng thành công")
+      setIsEditDialogOpen(false)
+      setSelectedUser(null)
+      editForm.reset()
+      fetchUsers()
+    } catch (error: any) {
+      console.error("Error updating user:", error)
+      toast.error("Không thể cập nhật người dùng", {
+        description: error.response?.data?.message || error.message || "Vui lòng thử lại sau",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Xử lý khóa tài khoản user
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return
+
+    try {
+      setIsSubmitting(true)
+      await deleteUser(selectedUser.id)
+      toast.success("Khóa tài khoản thành công")
+      setIsDeleteDialogOpen(false)
+      setSelectedUser(null)
+      fetchUsers()
+    } catch (error: any) {
+      console.error("Error locking user:", error)
+      toast.error("Không thể khóa tài khoản", {
+        description: error.response?.data?.message || error.message || "Vui lòng thử lại sau",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Mở dialog chỉnh sửa
+  const openEditDialog = (user: UserDTO) => {
+    setSelectedUser(user)
+    editForm.reset({
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  // Mở dialog xóa
+  const openDeleteDialog = (user: UserDTO) => {
+    setSelectedUser(user)
+    setIsDeleteDialogOpen(true)
+  }
+
+  // Lọc users theo search query
+  const filteredUsers = users.filter(
+    (user) =>
+      user.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
-
-  const handleViewHistory = (student: Student) => {
-    setSelectedStudent(student)
-    setIsHistoryDialogOpen(true)
-  }
 
   return (
     <div className="p-6">
         <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Quản lý sinh viên</h1>
-            <p className="mt-2 text-gray-600">Xem thông tin và lịch sử in ấn của sinh viên</p>
+          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Quản lý người dùng</h1>
+          <p className="mt-2 text-gray-600">Quản lý thông tin người dùng trong hệ thống</p>
           </div>
+        <Button
+          onClick={() => setIsCreateDialogOpen(true)}
+          className="bg-indigo-600 hover:bg-indigo-700"
+        >
+          <UserPlus className="mr-2 h-4 w-4" />
+          Thêm người dùng
+        </Button>
         </div>
 
         {/* Search */}
@@ -141,7 +247,7 @@ export default function StudentsManagementPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
-                placeholder="Tìm kiếm theo mã SV, tên, email..."
+              placeholder="Tìm kiếm theo ID, tên đăng nhập, email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -150,67 +256,93 @@ export default function StudentsManagementPage() {
           </CardContent>
         </Card>
 
-        {/* Students List */}
+      {/* Users List */}
         <Card>
           <CardHeader>
-            <CardTitle>Danh sách sinh viên ({filteredStudents.length})</CardTitle>
-            <CardDescription>Tổng số sinh viên đã đăng ký sử dụng hệ thống</CardDescription>
+          <CardTitle>Danh sách người dùng ({filteredUsers.length})</CardTitle>
+          <CardDescription>Tổng số người dùng trong hệ thống</CardDescription>
           </CardHeader>
           <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+              <span className="ml-2 text-gray-600">Đang tải...</span>
+            </div>
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-indigo-600 text-white">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Mã SV</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Tên</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">ID</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Tên đăng nhập</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Email</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Số dư</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Tổng lần in</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Tổng trang</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">In gần nhất</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Vai trò</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Số dư trang</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Trạng thái</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredStudents.length === 0 ? (
+                  {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                        Không tìm thấy sinh viên
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                        {users.length === 0 ? "Chưa có người dùng nào" : "Không tìm thấy người dùng"}
                       </td>
                     </tr>
                   ) : (
-                    filteredStudents.map((student) => (
-                      <tr key={student.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-4 text-sm font-medium sm:px-6">{student.id}</td>
-                        <td className="px-4 py-4 text-sm sm:px-6">{student.name}</td>
-                        <td className="px-4 py-4 text-sm text-gray-600 sm:px-6">{student.email}</td>
+                    filteredUsers.map((user) => (
+                      <tr 
+                        key={user.id} 
+                        className={`hover:bg-gray-50 ${!user.isActive ? "opacity-50 bg-gray-50" : ""}`}
+                      >
+                        <td className="px-4 py-4 text-sm font-medium sm:px-6">{user.id}</td>
+                        <td className="px-4 py-4 text-sm sm:px-6">{user.username}</td>
+                        <td className="px-4 py-4 text-sm text-gray-600 sm:px-6">{user.email}</td>
+                        <td className="px-4 py-4 text-sm sm:px-6">
+                          <Badge variant="outline">{user.role}</Badge>
+                        </td>
                         <td className="px-4 py-4 text-sm sm:px-6">
                           <Badge
                             className={
-                              student.balance > 0
+                              (user.balancePages || 0) > 0
                                 ? "bg-green-100 text-green-700"
                                 : "bg-red-100 text-red-700"
                             }
                           >
-                            {student.balance} trang
+                            {user.balancePages || 0} trang
                           </Badge>
                         </td>
-                        <td className="px-4 py-4 text-sm sm:px-6">{student.totalPrints}</td>
-                        <td className="px-4 py-4 text-sm sm:px-6">{student.totalPages}</td>
-                        <td className="px-4 py-4 text-sm text-gray-600 sm:px-6">
-                          {student.lastPrintDate
-                            ? format(new Date(student.lastPrintDate), "dd/MM/yyyy", { locale: vi })
-                            : "Chưa có"}
+                        <td className="px-4 py-4 text-sm sm:px-6">
+                          <Badge
+                            className={
+                              user.isActive
+                                ? "bg-green-100 text-green-700"
+                                : "bg-gray-100 text-gray-700"
+                            }
+                          >
+                            {user.isActive ? "Hoạt động" : "Không hoạt động"}
+                          </Badge>
                         </td>
                         <td className="px-4 py-4 sm:px-6">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewHistory(student)}
-                          >
-                            <Eye className="mr-2 h-4 w-4" />
-                            Xem lịch sử
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditDialog(user)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          {user.isActive && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openDeleteDialog(user)}
+                              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                            >
+                              <Lock className="h-4 w-4" />
+                            </Button>
+                          )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -218,114 +350,288 @@ export default function StudentsManagementPage() {
                 </tbody>
               </table>
             </div>
+          )}
 
             {/* Pagination */}
-            {filteredStudents.length > 0 && (
+          {!loading && filteredUsers.length > 0 && (
               <div className="mt-4 flex flex-col items-center justify-between gap-4 border-t border-gray-100 px-4 py-4 sm:flex-row sm:px-6">
                 <div className="text-sm text-gray-500">
-                  Hiển thị 1-{filteredStudents.length} trong tổng số {filteredStudents.length} sinh viên
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled>
-                    Trước
-                  </Button>
-                  <Button variant="default" size="sm" className="bg-indigo-600">
-                    1
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Sau
-                  </Button>
+                Hiển thị 1-{filteredUsers.length} trong tổng số {filteredUsers.length} người dùng
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Student History Dialog */}
-        <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      {/* Create User Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Lịch sử in ấn - {selectedStudent?.name} ({selectedStudent?.id})</DialogTitle>
+            <DialogTitle>Thêm người dùng mới</DialogTitle>
               <DialogDescription>
-                Xem chi tiết lịch sử in ấn của sinh viên này
+              Điền thông tin để tạo người dùng mới trong hệ thống
               </DialogDescription>
             </DialogHeader>
-            {selectedStudent && (
-              <div className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">Số dư hiện tại</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{selectedStudent.balance} trang</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">Tổng lần in</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{selectedStudent.totalPrints}</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">Tổng trang đã in</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{selectedStudent.totalPages}</div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div>
-                  <h3 className="mb-4 font-semibold">Lịch sử in ấn</h3>
-                  <div className="space-y-2">
-                    {studentHistory[selectedStudent.id]?.length > 0 ? (
-                      studentHistory[selectedStudent.id].map((record) => (
-                        <div
-                          key={record.id}
-                          className="flex items-center justify-between rounded-lg border p-4"
-                        >
-                          <div className="flex items-center gap-4">
-                            <FileText className="h-5 w-5 text-gray-400" />
-                            <div>
-                              <div className="font-medium">{record.fileName}</div>
+          <Form {...createForm}>
+            <form onSubmit={createForm.handleSubmit(handleCreateUser)} className="space-y-4">
+              <FormField
+                control={createForm.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tên đăng nhập</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Nhập tên đăng nhập" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" {...field} placeholder="email@example.com" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mật khẩu</FormLabel>
+                    <FormControl>
+                      <Input type="password" {...field} placeholder="Nhập mật khẩu" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vai trò</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chọn vai trò" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="STUDENT">Sinh viên</SelectItem>
+                        <SelectItem value="ADMIN">Quản trị viên</SelectItem>
+                        <SelectItem value="SPSO">SPSO</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel>Trạng thái hoạt động</FormLabel>
                               <div className="text-sm text-gray-500">
-                                {format(new Date(record.date), "dd/MM/yyyy", { locale: vi })} {record.time} • {record.printer} • {record.pages} trang {record.pageSize}
+                        Cho phép người dùng đăng nhập vào hệ thống
                               </div>
                             </div>
-                          </div>
-                          <Badge
-                            className={
-                              record.status === "completed"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-red-100 text-red-700"
-                            }
-                          >
-                            {record.status === "completed" ? "Hoàn thành" : "Thất bại"}
-                          </Badge>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsCreateDialogOpen(false)
+                    createForm.reset()
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Hủy
+                </Button>
+                <Button type="submit" disabled={isSubmitting} className="bg-indigo-600 hover:bg-indigo-700">
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang tạo...
+                    </>
+                  ) : (
+                    "Tạo mới"
+                  )}
+                </Button>
                         </div>
-                      ))
-                    ) : (
-                      <p className="py-8 text-center text-gray-500">Chưa có lịch sử in ấn</p>
-                    )}
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chỉnh sửa người dùng</DialogTitle>
+            <DialogDescription>
+              Cập nhật thông tin người dùng
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleEditUser)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tên đăng nhập</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Nhập tên đăng nhập" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" {...field} placeholder="email@example.com" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mật khẩu mới (để trống nếu không đổi)</FormLabel>
+                    <FormControl>
+                      <Input type="password" {...field} placeholder="Nhập mật khẩu mới" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vai trò</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chọn vai trò" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="STUDENT">Sinh viên</SelectItem>
+                        <SelectItem value="ADMIN">Quản trị viên</SelectItem>
+                        <SelectItem value="SPSO">SPSO</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel>Trạng thái hoạt động</FormLabel>
+                      <div className="text-sm text-gray-500">
+                        Cho phép người dùng đăng nhập vào hệ thống
                   </div>
                 </div>
-
-                <div className="flex justify-end">
-                  <Link href={`/admin/history?studentId=${selectedStudent.id}`}>
-                    <Button className="bg-indigo-600 hover:bg-indigo-700">
-                      Xem chi tiết đầy đủ
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditDialogOpen(false)
+                    setSelectedUser(null)
+                    editForm.reset()
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Hủy
+                </Button>
+                <Button type="submit" disabled={isSubmitting} className="bg-indigo-600 hover:bg-indigo-700">
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang cập nhật...
+                    </>
+                  ) : (
+                    "Cập nhật"
+                  )}
                     </Button>
-                  </Link>
-                </div>
               </div>
-            )}
+            </form>
+          </Form>
           </DialogContent>
         </Dialog>
+
+      {/* Lock User Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Khóa tài khoản?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Người dùng <strong>{selectedUser?.username}</strong> ({selectedUser?.email}) sẽ bị vô hiệu hóa và không thể đăng nhập vào hệ thống.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteUser}
+              disabled={isSubmitting}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang khóa...
+                </>
+              ) : (
+                "Khóa tài khoản"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
-
