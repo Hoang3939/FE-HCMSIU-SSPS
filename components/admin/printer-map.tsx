@@ -157,7 +157,7 @@ export function PrinterMap({ printers: initialPrinters, onLocationUpdate }: Prin
     <div className="space-y-4">
       <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
         <CardHeader>
-          <CardTitle>Bản đồ vị trí máy in</CardTitle>
+          <CardTitle className="text-white font-semibold text-xl">Bản đồ vị trí máy in</CardTitle>
           <CardDescription>
             Chọn máy in từ danh sách bên dưới, sau đó click vào bản đồ hoặc kéo thả marker để đặt vị trí.
           </CardDescription>
@@ -244,7 +244,7 @@ export function PrinterMap({ printers: initialPrinters, onLocationUpdate }: Prin
 
       <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
         <CardHeader>
-          <CardTitle>Danh sách máy in</CardTitle>
+          <CardTitle className="text-white font-semibold text-xl">Danh sách máy in</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
