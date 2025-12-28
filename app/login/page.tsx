@@ -11,7 +11,6 @@ import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
 import { authAPI } from "@/lib/api/auth-api"
 import { useToast } from "@/hooks/use-toast"
 import { toast as sonnerToast } from "sonner"
-import { getRedirectUrlAfterLogin } from "@/lib/utils/auth-redirect"
 
 function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
@@ -69,9 +68,13 @@ function LoginForm() {
         description: `Chào mừng ${response.user.username}!`,
       })
 
-      // Sử dụng utility function để lấy URL redirect phù hợp
-      const finalRedirectUrl = getRedirectUrlAfterLogin(response.user, redirectUrl)
-      router.push(finalRedirectUrl)
+      // Redirect dựa trên role
+      if (role === "ADMIN" || role === "SPSO") {
+        router.push("/admin/dashboard")
+      } else {
+        // Student và các role khác redirect đến trang upload
+        router.push("/upload")
+      }
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || err?.message || "Đăng nhập thất bại. Vui lòng thử lại."
       setError(errorMessage)
