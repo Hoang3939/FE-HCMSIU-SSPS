@@ -184,7 +184,9 @@ function PrintConfigContent() {
         pageRange: pageRange === "custom" ? customPageRange : undefined,
       })
 
-      toast.success(`Tạo lệnh in thành công! Chi phí: ${result.job.totalCost} trang`)
+      // Backend returns { success, message, data: { id, status, totalCost, message } }
+      const totalCost = result.data?.totalCost || calculateCost()
+      toast.success(`Tạo lệnh in thành công! Chi phí: ${totalCost} trang`)
       
       // Clear sessionStorage
       sessionStorage.removeItem('uploadedDocuments')
@@ -291,7 +293,7 @@ function PrintConfigContent() {
                     <SelectContent>
                       {printers.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.name} - {p.location}
+                          {p.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

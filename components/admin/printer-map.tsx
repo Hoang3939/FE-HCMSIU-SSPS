@@ -29,14 +29,33 @@ if (typeof window !== "undefined") {
   })
 }
 
-// Custom marker colors
-const createCustomIcon = (color: string, isSelected: boolean = false) => {
-  return new Icon({
-    iconUrl: `data:image/svg+xml;base64,${btoa(`
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10" fill="${color}" stroke="${isSelected ? '#3b82f6' : '#ffffff'}" stroke-width="${isSelected ? '3' : '2'}"/>
-      </svg>
-    `)}`,
+// Custom marker with label
+const createCustomIcon = (color: string, label: string, isSelected: boolean = false) => {
+  return new L.DivIcon({
+    html: `
+      <div style="position: relative; text-align: center;">
+        <div style="
+          position: absolute;
+          bottom: 28px;
+          left: 50%;
+          transform: translateX(-50%);
+          white-space: nowrap;
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 600;
+          pointer-events: none;
+          z-index: 1000;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        ">${label}</div>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" fill="${color}" stroke="${isSelected ? '#3b82f6' : '#ffffff'}" stroke-width="${isSelected ? '3' : '2'}"/>
+        </svg>
+      </div>
+    `,
+    className: 'custom-marker-icon',
     iconSize: [24, 24],
     iconAnchor: [12, 12],
   })
@@ -186,12 +205,20 @@ export function PrinterMap({ printers: initialPrinters, onLocationUpdate }: Prin
 
                   const isSelected = selectedPrinter?.PrinterID === printerId
                   
+                  // Format label: "name - (BUILDINGROOM)"
+                  const buildingRoom = printer.Building && printer.Room 
+                    ? `${printer.Building}${printer.Room}`
+                    : printer.Building || printer.Room || ''
+                  const label = buildingRoom 
+                    ? `${printer.Name} - (${buildingRoom})`
+                    : printer.Name
+                  
                   return (
                     <Marker
                       key={printerId}
                       position={position}
                       draggable={isSelected}
-                      icon={createCustomIcon(getMarkerColor(printer.Status), isSelected)}
+                      icon={createCustomIcon(getMarkerColor(printer.Status), label, isSelected)}
                       eventHandlers={{
                         dragend: (e) => handleMarkerDragEnd(printerId, e),
                         click: () => {
@@ -205,6 +232,9 @@ export function PrinterMap({ printers: initialPrinters, onLocationUpdate }: Prin
                           <p className="text-sm text-gray-600">Trạng thái: {printer.Status}</p>
                           {printer.Building && (
                             <p className="text-sm text-gray-600">Tòa nhà: {printer.Building}</p>
+                          )}
+                          {printer.Room && (
+                            <p className="text-sm text-gray-600">Phòng: {printer.Room}</p>
                           )}
                         </div>
                       </Popup>

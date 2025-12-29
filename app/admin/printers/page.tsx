@@ -59,7 +59,8 @@ interface PrinterFormData {
   Status: "AVAILABLE" | "BUSY" | "OFFLINE" | "MAINTENANCE" | "ERROR"
   IPAddress: string
   CUPSPrinterName: string
-  LocationID: string
+  Building: string
+  Room: string
   IsActive: boolean
 }
 
@@ -91,7 +92,8 @@ export default function PrinterManagementPage() {
     Status: "OFFLINE",
     IPAddress: "",
     CUPSPrinterName: "",
-    LocationID: "",
+    Building: "",
+    Room: "",
     IsActive: true,
   })
 
@@ -154,7 +156,8 @@ export default function PrinterManagementPage() {
       Status: "OFFLINE",
       IPAddress: "",
       CUPSPrinterName: "",
-      LocationID: "",
+      Building: "",
+      Room: "",
       IsActive: true,
     })
     setIsDialogOpen(true)
@@ -163,6 +166,7 @@ export default function PrinterManagementPage() {
   const handleEditPrinter = (printer: PrinterType) => {
     setEditingPrinter(printer)
     setFormErrors({})
+    // Load Building and Room from printer data (these should come from backend now)
     setFormData({
       Name: printer.Name,
       Brand: printer.Brand || "",
@@ -171,7 +175,8 @@ export default function PrinterManagementPage() {
       Status: printer.Status,
       IPAddress: printer.IPAddress || "",
       CUPSPrinterName: printer.CUPSPrinterName || "",
-      LocationID: printer.LocationID || "",
+      Building: (printer as any).Building || "",
+      Room: (printer as any).Room || "",
       IsActive: printer.IsActive,
     })
     setIsDialogOpen(true)
@@ -201,7 +206,6 @@ export default function PrinterManagementPage() {
       
       if (editingPrinter) {
         // Update existing printer
-        const locationID = formData.LocationID?.trim();
         const updatePayload = {
           Name: formData.Name,
           Brand: formData.Brand?.trim() || undefined,
@@ -210,7 +214,8 @@ export default function PrinterManagementPage() {
           Status: formData.Status,
           IPAddress: formData.IPAddress?.trim() || undefined,
           CUPSPrinterName: formData.CUPSPrinterName?.trim() || undefined,
-          LocationID: locationID && locationID.length > 0 ? locationID : null,
+          Building: formData.Building?.trim() || undefined,
+          Room: formData.Room?.trim() || undefined,
           IsActive: formData.IsActive,
         }
         console.log('[Frontend] handleSavePrinter: Updating printer', {
@@ -233,7 +238,6 @@ export default function PrinterManagementPage() {
         setIsDialogOpen(false)
       } else {
         // Create new printer
-        const locationID = formData.LocationID?.trim();
         const createPayload = {
           Name: formData.Name,
           Brand: formData.Brand?.trim() || undefined,
@@ -242,7 +246,8 @@ export default function PrinterManagementPage() {
           Status: formData.Status,
           IPAddress: formData.IPAddress?.trim() || undefined,
           CUPSPrinterName: formData.CUPSPrinterName?.trim() || undefined,
-          LocationID: locationID && locationID.length > 0 ? locationID : undefined,
+          Building: formData.Building?.trim() || undefined,
+          Room: formData.Room?.trim() || undefined,
           IsActive: formData.IsActive,
         }
         console.log('[Frontend] handleSavePrinter: Creating new printer', {
@@ -637,12 +642,21 @@ export default function PrinterManagementPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="locationID">ID Vị trí (Location ID)</Label>
+                  <Label htmlFor="building">Tòa nhà (Building)</Label>
                   <Input
-                    id="locationID"
-                    value={formData.LocationID}
-                    onChange={(e) => setFormData({ ...formData, LocationID: e.target.value })}
-                    placeholder="UUID của vị trí (tùy chọn)"
+                    id="building"
+                    value={formData.Building}
+                    onChange={(e) => setFormData({ ...formData, Building: e.target.value })}
+                    placeholder="Ví dụ: LEW, H6"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="room">Phòng (Room)</Label>
+                  <Input
+                    id="room"
+                    value={formData.Room}
+                    onChange={(e) => setFormData({ ...formData, Room: e.target.value })}
+                    placeholder="Ví dụ: 404, 101"
                   />
                 </div>
                 <div className="space-y-2">
@@ -966,10 +980,16 @@ export default function PrinterManagementPage() {
                 </div>
               </div>
 
-              {/* Location ID */}
+              {/* Building */}
               <div className="space-y-2">
-                <Label className="text-sm font-semibold text-gray-400">ID Vị trí</Label>
-                <div className="text-base text-white font-mono text-sm break-all">{printerToView.LocationID ? printerToView.LocationID : <span className="text-gray-500">Không có</span>}</div>
+                <Label className="text-sm font-semibold text-gray-400">Tòa nhà (Building)</Label>
+                <div className="text-base text-white">{(printerToView as any).Building ? (printerToView as any).Building : <span className="text-gray-500">Không có</span>}</div>
+              </div>
+
+              {/* Room */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-400">Phòng (Room)</Label>
+                <div className="text-base text-white">{(printerToView as any).Room ? (printerToView as any).Room : <span className="text-gray-500">Không có</span>}</div>
               </div>
 
               {/* Printer ID */}

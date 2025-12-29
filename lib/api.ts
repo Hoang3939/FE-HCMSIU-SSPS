@@ -149,17 +149,12 @@ export async function createPrintJob(data: {
   orientation?: 'PORTRAIT' | 'LANDSCAPE';
   pageRange?: string;
 }) {
-  return apiRequest<{
+  return apiRequest<ApiResponse<{
+    id: string;
+    status: string;
+    totalCost: number;
     message: string;
-    job: {
-      id: string;
-      status: string;
-      totalCost: number;
-      pages: number;
-      options: any;
-      createdAt: string;
-    };
-  }>('/api/print-jobs/create', {
+  }>>('/api/print-jobs/create', {
     method: 'POST',
     body: JSON.stringify(data),
   });
