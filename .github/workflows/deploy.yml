@@ -193,7 +193,7 @@ jobs:
           
           echo "Health check response: HTTP $response"
           echo ""
-          echo "Frontend đang hoạt động bình thường"
+          echo "Frontend đang hoạt động bình thường "
 
       - name: Show PM2 status
         run: |
