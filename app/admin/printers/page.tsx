@@ -28,10 +28,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Printer, Plus, Edit, Trash2, Loader2, AlertCircle, Map, X } from "lucide-react"
+import { Printer, Plus, Edit, Trash2, Loader2, AlertCircle, Map, X, Eye } from "lucide-react"
 import { printerAPI, type Printer as PrinterType } from "@/lib/api/printer-api"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AxiosError } from "axios"
 
 // Dynamic import PrinterMap với ssr: false để tránh lỗi "window is not defined"
 // react-leaflet cần chạy ở client-side, không thể render ở server-side
@@ -63,7 +64,6 @@ interface PrinterFormData {
 }
 
 export default function PrinterManagementPage() {
-  const { toast } = useToast()
   const [printers, setPrinters] = useState<PrinterType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -74,6 +74,12 @@ export default function PrinterManagementPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [printerToDelete, setPrinterToDelete] = useState<PrinterType | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+  const [printerToView, setPrinterToView] = useState<PrinterType | null>(null)
+  const [formErrors, setFormErrors] = useState<{
+    Name?: string
+    IPAddress?: string
+  }>({})
   const [formData, setFormData] = useState<PrinterFormData>({
     Name: "",
     Brand: "",
@@ -103,10 +109,8 @@ export default function PrinterManagementPage() {
                           err?.message || 
                           "Không thể tải danh sách máy in"
       setError(errorMessage)
-      toast({
-        title: "Lỗi",
+      toast.error("Lỗi", {
         description: errorMessage,
-        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -115,6 +119,7 @@ export default function PrinterManagementPage() {
 
   const handleAddPrinter = () => {
     setEditingPrinter(null)
+    setFormErrors({})
     setFormData({
       Name: "",
       Brand: "",
@@ -131,6 +136,7 @@ export default function PrinterManagementPage() {
 
   const handleEditPrinter = (printer: PrinterType) => {
     setEditingPrinter(printer)
+    setFormErrors({})
     setFormData({
       Name: printer.Name,
       Brand: printer.Brand || "",
@@ -146,21 +152,31 @@ export default function PrinterManagementPage() {
   }
 
   const handleSavePrinter = async () => {
+    // Prevent duplicate submissions
+    if (saving) {
+      console.log('[Frontend] handleSavePrinter: Already saving, ignoring duplicate click')
+      return
+    }
+
+    // Clear previous errors
+    setFormErrors({})
+
     if (!formData.Name.trim()) {
-      toast({
-        title: "Lỗi",
+      console.log('[Frontend] handleSavePrinter: Validation failed - Name is required')
+      setFormErrors({ Name: "Tên máy in là bắt buộc" })
+      toast.error("Lỗi", {
         description: "Tên máy in là bắt buộc",
-        variant: "destructive",
       })
       return
     }
 
     try {
       setSaving(true)
+      
       if (editingPrinter) {
         // Update existing printer
         const locationID = formData.LocationID?.trim();
-        const updated = await printerAPI.updatePrinter(editingPrinter.PrinterID, {
+        const updatePayload = {
           Name: formData.Name,
           Brand: formData.Brand?.trim() || undefined,
           Model: formData.Model?.trim() || undefined,
@@ -170,16 +186,29 @@ export default function PrinterManagementPage() {
           CUPSPrinterName: formData.CUPSPrinterName?.trim() || undefined,
           LocationID: locationID && locationID.length > 0 ? locationID : null,
           IsActive: formData.IsActive,
+        }
+        console.log('[Frontend] handleSavePrinter: Updating printer', {
+          printerID: editingPrinter.PrinterID,
+          payload: updatePayload
         })
-        setPrinters(printers.map((p) => (p.PrinterID === editingPrinter.PrinterID ? updated : p)))
-        toast({
-          title: "Thành công",
+        
+        const updated = await printerAPI.updatePrinter(editingPrinter.PrinterID, updatePayload)
+        console.log('[Frontend] handleSavePrinter: Update successful', updated)
+        
+        // Refresh the list to get the latest data
+        await loadPrinters()
+        setFormErrors({})
+        
+        // Show success toast immediately after successful update
+        toast.success("Thành công", {
           description: "Cập nhật máy in thành công",
         })
+        
+        setIsDialogOpen(false)
       } else {
         // Create new printer
         const locationID = formData.LocationID?.trim();
-        const created = await printerAPI.createPrinter({
+        const createPayload = {
           Name: formData.Name,
           Brand: formData.Brand?.trim() || undefined,
           Model: formData.Model?.trim() || undefined,
@@ -189,23 +218,129 @@ export default function PrinterManagementPage() {
           CUPSPrinterName: formData.CUPSPrinterName?.trim() || undefined,
           LocationID: locationID && locationID.length > 0 ? locationID : undefined,
           IsActive: formData.IsActive,
+        }
+        console.log('[Frontend] handleSavePrinter: Creating new printer', {
+          payload: createPayload,
+          formData: formData
         })
-        setPrinters([...printers, created])
-        toast({
-          title: "Thành công",
+        
+        const created = await printerAPI.createPrinter(createPayload)
+        console.log('[Frontend] handleSavePrinter: Create successful', created)
+        
+        // Refresh the list to show the new printer
+        await loadPrinters()
+        console.log('[Frontend] handleSavePrinter: List refreshed, showing success toast and closing modal')
+        setFormErrors({})
+        
+        // Show success toast immediately after successful creation
+        toast.success("Thành công", {
           description: "Thêm máy in mới thành công",
         })
+        
+        setIsDialogOpen(false)
       }
-      setIsDialogOpen(false)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Có lỗi xảy ra"
-      toast({
-        title: "Lỗi",
-        description: errorMessage,
-        variant: "destructive",
+    } catch (err: unknown) {
+      // Use AxiosError type guard to safely access error.response
+      if (err instanceof AxiosError) {
+        const responseStatus = err.response?.status
+        const responseData = err.response?.data as { code?: string; message?: string; error?: string } | undefined
+        const errorCode = responseData?.code
+        const errorMessage = responseData?.message
+
+        console.error('[Frontend] handleSavePrinter: AxiosError occurred', {
+          status: responseStatus,
+          code: errorCode,
+          data: responseData,
+          message: err.message
+        })
+
+        // Handle 409 Conflict (duplicate Name or IPAddress)
+        if (responseStatus === 409) {
+          console.log('[Frontend] handleSavePrinter: 409 Conflict detected, showing error toast', {
+            status: responseStatus,
+            code: errorCode,
+            message: errorMessage,
+            fullResponseData: responseData
+          })
+
+          // Xử lý DUPLICATE_NAME theo yêu cầu
+          if (errorCode === 'DUPLICATE_NAME') {
+            console.log('[Frontend] handleSavePrinter: DUPLICATE_NAME detected, showing toast')
+            setFormErrors({ Name: "Tên máy in này đã tồn tại trong hệ thống. Vui lòng chọn tên khác." })
+            toast.error("Lỗi trùng lặp", {
+              description: "Tên máy in này đã tồn tại trong hệ thống. Vui lòng chọn tên khác.",
+            })
+            // Modal stays open so user can fix the name
+            return
+          }
+
+          // Xử lý DUPLICATE_IP theo yêu cầu
+          if (errorCode === 'DUPLICATE_IP') {
+            console.log('[Frontend] handleSavePrinter: DUPLICATE_IP detected, showing toast and field error')
+            const ipErrorMsg = errorMessage || "Địa chỉ IP này đã được sử dụng bởi máy in khác. Vui lòng sử dụng địa chỉ IP khác."
+            setFormErrors({ IPAddress: ipErrorMsg })
+            toast.error("Lỗi trùng lặp địa chỉ IP", {
+              description: ipErrorMsg,
+            })
+            // Modal stays open so user can fix the IP address
+            return
+          }
+
+          // Fallback cho các lỗi 409 khác
+          console.log('[Frontend] handleSavePrinter: 409 Conflict fallback, showing toast')
+          toast.error("Lỗi trùng lặp", {
+            description: errorMessage || "Đã có lỗi xảy ra, vui lòng thử lại sau.",
+          })
+          // Modal stays open so user can retry
+          return
+        }
+
+        // Handle 400 Bad Request (validation errors)
+        if (responseStatus === 400) {
+          console.log('[Frontend] handleSavePrinter: 400 Bad Request detected, showing error toast', {
+            status: responseStatus,
+            message: errorMessage
+          })
+          toast.error("Lỗi", {
+            description: errorMessage || "Đã có lỗi xảy ra, vui lòng thử lại sau.",
+          })
+          // Modal stays open so user can fix the data
+          return
+        }
+
+        // Handle 401 Unauthorized
+        if (responseStatus === 401) {
+          toast.error("Lỗi xác thực", {
+            description: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+          })
+          return
+        }
+
+        // Handle other HTTP errors (500, etc.)
+        console.log('[Frontend] handleSavePrinter: Showing generic error toast', {
+          status: responseStatus,
+          message: errorMessage
+        })
+        toast.error("Lỗi", {
+          description: "Đã có lỗi xảy ra, vui lòng thử lại sau.",
+        })
+        // Modal stays open on error so user can retry
+        return
+      }
+
+      // Handle non-Axios errors (network errors, etc.)
+      const errorMessage = err instanceof Error ? err.message : "Đã có lỗi xảy ra, vui lòng thử lại sau."
+      console.error('[Frontend] handleSavePrinter: Non-AxiosError occurred', {
+        error: err,
+        message: errorMessage
       })
+      toast.error("Lỗi", {
+        description: errorMessage,
+      })
+      // Modal stays open on error so user can retry
     } finally {
       setSaving(false)
+      console.log('[Frontend] handleSavePrinter: Finished, saving state reset')
     }
   }
 
@@ -219,21 +354,23 @@ export default function PrinterManagementPage() {
 
     try {
       setDeleting(true)
+      
+      // 1. Call API
       await printerAPI.deletePrinter(printerToDelete.PrinterID)
-      setPrinters(printers.filter((p) => p.PrinterID !== printerToDelete.PrinterID))
+      
+      // 2. IMPORTANT: Refresh the list immediately
+      await loadPrinters()
+      
+      // 3. Show Success Toast
+      toast.success("Đã xóa máy in thành công!")
+      
+      // 4. Close Modal
       setIsDeleteDialogOpen(false)
       setPrinterToDelete(null)
-      toast({
-        title: "Thành công",
-        description: "Xóa máy in thành công",
-      })
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Không thể xóa máy in"
-      toast({
-        title: "Lỗi",
-        description: errorMessage,
-        variant: "destructive",
-      })
+    } catch (error) {
+      console.error('[Frontend] handleDeletePrinter: Error occurred', error)
+      toast.error("Xóa thất bại. Vui lòng thử lại.")
+      // Keep modal open on error so user can retry
     } finally {
       setDeleting(false)
     }
@@ -245,16 +382,13 @@ export default function PrinterManagementPage() {
         IsActive: !printer.IsActive,
       })
       setPrinters(printers.map((p) => (p.PrinterID === printer.PrinterID ? updated : p)))
-      toast({
-        title: "Thành công",
+      toast.success("Thành công", {
         description: updated.IsActive ? "Kích hoạt máy in thành công" : "Tạm dừng máy in thành công",
       })
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Không thể cập nhật trạng thái"
-      toast({
-        title: "Lỗi",
+      toast.error("Lỗi", {
         description: errorMessage,
-        variant: "destructive",
       })
     }
   }
@@ -268,6 +402,11 @@ export default function PrinterManagementPage() {
       ERROR: "Lỗi",
     }
     return statusMap[status] || status
+  }
+
+  const handleViewDetails = (printer: PrinterType) => {
+    setPrinterToView(printer)
+    setIsDetailDialogOpen(true)
   }
 
 
@@ -333,10 +472,20 @@ export default function PrinterManagementPage() {
                   <Input
                     id="name"
                     value={formData.Name}
-                    onChange={(e) => setFormData({ ...formData, Name: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, Name: e.target.value })
+                      if (formErrors.Name) setFormErrors({ ...formErrors, Name: undefined })
+                    }}
                     placeholder="Máy in H6-101"
                     required
+                    className={formErrors.Name ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formErrors.Name && (
+                    <p className="text-sm text-red-400 flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4" />
+                      {formErrors.Name}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="brand">Hãng</Label>
@@ -371,9 +520,19 @@ export default function PrinterManagementPage() {
                   <Input
                     id="ipAddress"
                     value={formData.IPAddress}
-                    onChange={(e) => setFormData({ ...formData, IPAddress: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, IPAddress: e.target.value })
+                      if (formErrors.IPAddress) setFormErrors({ ...formErrors, IPAddress: undefined })
+                    }}
                     placeholder="192.168.1.100"
+                    className={formErrors.IPAddress ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formErrors.IPAddress && (
+                    <p className="text-sm text-red-400 flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4" />
+                      {formErrors.IPAddress}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="cupsPrinterName">Tên máy in CUPS</Label>
@@ -550,6 +709,15 @@ export default function PrinterManagementPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="flex-1 border-[#2a2a2a] bg-blue-900/20 text-blue-400 hover:bg-blue-900/30 hover:text-blue-300"
+                      onClick={() => handleViewDetails(printer)}
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      Chi tiết
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="flex-1 border-[#2a2a2a] bg-white text-[#1a1a1a] hover:bg-gray-100 hover:text-[#0a0a0a]"
                       onClick={() => handleEditPrinter(printer)}
                     >
@@ -620,6 +788,144 @@ export default function PrinterManagementPage() {
           </div>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* View Details Dialog */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-3xl bg-[#1a1a1a] border-[#2a2a2a] text-white max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white text-xl font-semibold">
+              Chi tiết máy in
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Thông tin đầy đủ về máy in
+            </DialogDescription>
+          </DialogHeader>
+          
+          {printerToView && (
+            <div className="grid gap-6 py-4 sm:grid-cols-2">
+              {/* Name */}
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="text-sm font-semibold text-gray-400">Tên máy in</Label>
+                <div className="text-base text-white font-medium">{printerToView.Name}</div>
+              </div>
+
+              {/* Brand */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-400">Hãng</Label>
+                <div className="text-base text-white">{printerToView.Brand ? printerToView.Brand : <span className="text-gray-500">Không có</span>}</div>
+              </div>
+
+              {/* Model */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-400">Model</Label>
+                <div className="text-base text-white">{printerToView.Model ? printerToView.Model : <span className="text-gray-500">Không có</span>}</div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="text-sm font-semibold text-gray-400">Mô tả</Label>
+                <div className="text-base text-white whitespace-pre-wrap">{printerToView.Description ? printerToView.Description : <span className="text-gray-500">Không có</span>}</div>
+              </div>
+
+              {/* IP Address */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-400">Địa chỉ IP</Label>
+                <div className="text-base text-white font-mono">{printerToView.IPAddress ? printerToView.IPAddress : <span className="text-gray-500">Không có</span>}</div>
+              </div>
+
+              {/* CUPS Printer Name */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-400">Tên máy in CUPS</Label>
+                <div className="text-base text-white font-mono">{printerToView.CUPSPrinterName ? printerToView.CUPSPrinterName : <span className="text-gray-500">Không có</span>}</div>
+              </div>
+
+              {/* Status */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-400">Trạng thái</Label>
+                <div>
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
+                      printerToView.Status === 'AVAILABLE' ? 'bg-green-900/30 text-green-400' :
+                      printerToView.Status === 'BUSY' ? 'bg-yellow-900/30 text-yellow-400' :
+                      printerToView.Status === 'OFFLINE' ? 'bg-gray-800 text-gray-400' :
+                      printerToView.Status === 'MAINTENANCE' ? 'bg-blue-900/30 text-blue-400' :
+                      'bg-red-900/30 text-red-400'
+                    }`}
+                  >
+                    {getStatusLabel(printerToView.Status)}
+                  </span>
+                </div>
+              </div>
+
+              {/* IsActive */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-400">Trạng thái hoạt động</Label>
+                <div>
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
+                      printerToView.IsActive
+                        ? "bg-green-900/30 text-green-400"
+                        : "bg-gray-800 text-gray-400"
+                    }`}
+                  >
+                    {printerToView.IsActive ? "Hoạt động" : "Tạm dừng"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Location ID */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-400">ID Vị trí</Label>
+                <div className="text-base text-white font-mono text-sm break-all">{printerToView.LocationID ? printerToView.LocationID : <span className="text-gray-500">Không có</span>}</div>
+              </div>
+
+              {/* Printer ID */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-400">ID Máy in</Label>
+                <div className="text-base text-white font-mono text-sm break-all">{printerToView.PrinterID}</div>
+              </div>
+
+              {/* Created At */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-400">Ngày tạo</Label>
+                <div className="text-base text-white">
+                  {printerToView.CreatedAt ? new Date(printerToView.CreatedAt).toLocaleString('vi-VN') : <span className="text-gray-500">Không có</span>}
+                </div>
+              </div>
+
+              {/* Updated At */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-400">Ngày cập nhật</Label>
+                <div className="text-base text-white">
+                  {printerToView.UpdatedAt ? new Date(printerToView.UpdatedAt).toLocaleString('vi-VN') : <span className="text-gray-500">Không có</span>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDetailDialogOpen(false)} 
+              className="border-[#2a2a2a] bg-transparent text-white hover:bg-[#2a2a2a] hover:text-white"
+            >
+              Đóng
+            </Button>
+            {printerToView && (
+              <Button 
+                onClick={() => {
+                  setIsDetailDialogOpen(false)
+                  handleEditPrinter(printerToView)
+                }} 
+                className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white"
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Chỉnh sửa
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

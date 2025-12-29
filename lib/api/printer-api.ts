@@ -1,6 +1,7 @@
 import apiClient from './apiClient';
 import { API_ENDPOINTS } from '../api-config';
 import type { ApiResponse, PaginatedApiResponse } from '../types/api.types';
+import { AxiosError } from 'axios';
 
 /**
  * Types từ Backend API
@@ -118,16 +119,46 @@ class PrinterAPI {
    * Tạo máy in mới
    */
   async createPrinter(data: CreatePrinterDto): Promise<Printer> {
-    const response = await apiClient.post<ApiResponse<Printer>>(
-      API_ENDPOINTS.printers.create,
+    console.log('[Frontend API] createPrinter: Sending request', {
+      endpoint: API_ENDPOINTS.printers.create,
       data
-    );
+    });
+    
+    try {
+      const response = await apiClient.post<ApiResponse<Printer>>(
+        API_ENDPOINTS.printers.create,
+        data
+      );
 
-    if (response.data.success && response.data.data) {
-      return response.data.data;
+      console.log('[Frontend API] createPrinter: Response received', {
+        status: response.status,
+        data: response.data,
+        success: response.data.success,
+        hasData: !!response.data.data
+      });
+
+      if (response.data.success && response.data.data) {
+        console.log('[Frontend API] createPrinter: Returning printer data', response.data.data);
+        return response.data.data;
+      }
+
+      console.error('[Frontend API] createPrinter: Invalid response format', response.data);
+      throw new Error(response.data.message || 'Không thể tạo máy in');
+    } catch (error: unknown) {
+      // Use AxiosError type guard to safely access error.response
+      if (error instanceof AxiosError) {
+        console.error('[Frontend API] createPrinter: AxiosError occurred', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        // Re-throw axios errors to preserve status code and response data
+        throw error;
+      }
+      // For non-axios errors, wrap in Error
+      const errorMessage = error instanceof Error ? error.message : 'Không thể tạo máy in';
+      throw new Error(errorMessage);
     }
-
-    throw new Error(response.data.message || 'Không thể tạo máy in');
   }
 
   /**
