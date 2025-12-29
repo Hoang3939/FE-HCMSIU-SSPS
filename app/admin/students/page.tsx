@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, UserPlus, Pencil, Lock, Eye, Loader2 } from "lucide-react"
+import { Search, UserPlus, Pencil, Lock, Eye, Loader2, ChevronLeft, ChevronRight, X } from "lucide-react"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -53,6 +54,8 @@ export default function StudentsManagementPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserDTO | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(8)
 
   // Form cho tạo mới
   const createForm = useForm<CreateUserDTO>({
@@ -225,53 +228,136 @@ export default function StudentsManagementPage() {
       user.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  return (
-    <div className="p-6">
-        <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
-          <div>
-          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Quản lý người dùng</h1>
-          <p className="mt-2 text-gray-600">Quản lý thông tin người dùng trong hệ thống</p>
-          </div>
-        <Button
-          onClick={() => setIsCreateDialogOpen(true)}
-          className="bg-indigo-600 hover:bg-indigo-700"
-        >
-          <UserPlus className="mr-2 h-4 w-4" />
-          Thêm người dùng
-        </Button>
-        </div>
+  // Calculate stats
+  const totalUsers = users.length
+  const activeUsers = users.filter(u => u.isActive).length
+  const inactiveUsers = users.filter(u => !u.isActive).length
 
-        {/* Search */}
-        <Card className="mb-6">
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex)
+  const startRecord = filteredUsers.length > 0 ? startIndex + 1 : 0
+  const endRecord = Math.min(endIndex, filteredUsers.length)
+
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery])
+
+  // Pagination handlers
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const handlePageClick = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  return (
+    <div className="p-6 bg-[#121212] min-h-screen">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-white mb-2">Quản lý người dùng</h1>
+        <p className="text-gray-400">Quản lý thông tin người dùng trong hệ thống</p>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
           <CardContent className="pt-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-              placeholder="Tìm kiếm theo ID, tên đăng nhập, email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Tổng số người dùng</p>
+                <p className="text-2xl font-bold text-white">{totalUsers}</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-[#2a2a2a] flex items-center justify-center">
+                <UserPlus className="h-6 w-6 text-[#4D47C3]" />
+              </div>
             </div>
           </CardContent>
         </Card>
+        <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Đang hoạt động</p>
+                <p className="text-2xl font-bold text-green-400">{activeUsers}</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center">
+                <Eye className="h-6 w-6 text-green-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Không hoạt động</p>
+                <p className="text-2xl font-bold text-gray-400">{inactiveUsers}</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-gray-500/10 flex items-center justify-center">
+                <Lock className="h-6 w-6 text-gray-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Add Button */}
+      <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white mb-4">
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <div className="flex-1 w-full">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Tìm kiếm theo ID, tên đăng nhập, email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-9 bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
+                />
+              </div>
+            </div>
+            <Button
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="h-9 bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white border-[#3a3a3a]"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Thêm người dùng
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Users List */}
-        <Card>
-          <CardHeader>
-          <CardTitle>Danh sách người dùng ({filteredUsers.length})</CardTitle>
-          <CardDescription>Tổng số người dùng trong hệ thống</CardDescription>
-          </CardHeader>
-          <CardContent>
+      <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
+        <CardHeader>
+          <CardTitle className="text-white font-semibold text-xl">Danh sách người dùng ({filteredUsers.length})</CardTitle>
+          <CardDescription className="text-gray-400 mt-1">
+            Tổng số người dùng trong hệ thống
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-              <span className="ml-2 text-gray-600">Đang tải...</span>
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              <span className="ml-2 text-gray-400">Đang tải...</span>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-indigo-600 text-white">
+                <thead className="bg-[#2a2a2a] text-white">
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">ID</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Tên đăng nhập</th>
@@ -282,31 +368,38 @@ export default function StudentsManagementPage() {
                     <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredUsers.length === 0 ? (
+                <tbody className="divide-y divide-[#2a2a2a]">
+                  {paginatedUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
                         {users.length === 0 ? "Chưa có người dùng nào" : "Không tìm thấy người dùng"}
                       </td>
                     </tr>
                   ) : (
-                    filteredUsers.map((user) => (
+                    paginatedUsers.map((user, index) => {
+                      const globalIndex = startIndex + index
+                      return (
                       <tr 
                         key={user.id} 
-                        className={`hover:bg-gray-50 ${!user.isActive ? "opacity-50 bg-gray-50" : ""}`}
+                        className={`hover:bg-[#252525] transition-colors ${!user.isActive ? "opacity-50" : ""}`}
+                        style={{
+                          backgroundColor: globalIndex % 2 === 0 ? '#1E1E1E' : '#252525'
+                        }}
                       >
-                        <td className="px-4 py-4 text-sm font-medium sm:px-6">{user.id}</td>
-                        <td className="px-4 py-4 text-sm sm:px-6">{user.username}</td>
-                        <td className="px-4 py-4 text-sm text-gray-600 sm:px-6">{user.email}</td>
+                        <td className="px-4 py-4 text-sm font-medium text-white sm:px-6">{user.id}</td>
+                        <td className="px-4 py-4 text-sm text-gray-300 sm:px-6">{user.username}</td>
+                        <td className="px-4 py-4 text-sm text-gray-400 sm:px-6">{user.email}</td>
                         <td className="px-4 py-4 text-sm sm:px-6">
-                          <Badge variant="outline">{user.role}</Badge>
+                          <Badge variant="outline" className="border-[#3a3a3a] text-gray-300 bg-[#2a2a2a]">
+                            {user.role}
+                          </Badge>
                         </td>
                         <td className="px-4 py-4 text-sm sm:px-6">
                           <Badge
                             className={
                               (user.balancePages || 0) > 0
-                                ? "bg-green-100 text-green-700"
-                                : "bg-red-100 text-red-700"
+                                ? "bg-green-900/30 text-green-400 rounded-full px-3 py-1"
+                                : "bg-red-900/30 text-red-400 rounded-full px-3 py-1"
                             }
                           >
                             {user.balancePages || 0} trang
@@ -316,8 +409,8 @@ export default function StudentsManagementPage() {
                           <Badge
                             className={
                               user.isActive
-                                ? "bg-green-100 text-green-700"
-                                : "bg-gray-100 text-gray-700"
+                                ? "bg-green-900/30 text-green-400 rounded-full px-3 py-1"
+                                : "bg-gray-800 text-gray-400 rounded-full px-3 py-1"
                             }
                           >
                             {user.isActive ? "Hoạt động" : "Không hoạt động"}
@@ -326,136 +419,194 @@ export default function StudentsManagementPage() {
                         <td className="px-4 py-4 sm:px-6">
                           <div className="flex gap-2">
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               onClick={() => openEditDialog(user)}
+                              className="text-gray-300 hover:text-white hover:bg-[#3a3a3a] h-8 w-8 p-0"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                          {user.isActive && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openDeleteDialog(user)}
-                              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                            >
-                              <Lock className="h-4 w-4" />
-                            </Button>
-                          )}
+                            {user.isActive && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openDeleteDialog(user)}
+                                className="text-gray-300 hover:text-amber-400 hover:bg-[#3a3a3a] h-8 w-8 p-0"
+                              >
+                                <Lock className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </tr>
-                    ))
+                      )
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           )}
 
-            {/* Pagination */}
+          {/* Pagination */}
           {!loading && filteredUsers.length > 0 && (
-              <div className="mt-4 flex flex-col items-center justify-between gap-4 border-t border-gray-100 px-4 py-4 sm:flex-row sm:px-6">
-                <div className="text-sm text-gray-500">
-                Hiển thị 1-{filteredUsers.length} trong tổng số {filteredUsers.length} người dùng
-                </div>
+            <div className="mt-4 flex flex-col items-center justify-between gap-4 border-t border-[#2a2a2a] px-4 py-4 sm:flex-row sm:px-6">
+              <div className="text-sm text-gray-400">
+                Hiển thị {startRecord}-{endRecord} trong tổng số {filteredUsers.length} người dùng
               </div>
-            )}
-          </CardContent>
-        </Card>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 1}
+                    className="border-[#3a3a3a] bg-transparent text-gray-300 hover:bg-[#2a2a2a] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Trước
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageClick(page)}
+                        className={`min-w-[40px] ${
+                          currentPage === page
+                            ? "bg-[#4D47C3] border-[#4D47C3] text-white hover:bg-[#3d37a3]"
+                            : "border-[#3a3a3a] bg-transparent text-gray-300 hover:bg-[#2a2a2a] hover:text-white"
+                        }`}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                    className="border-[#3a3a3a] bg-transparent text-gray-300 hover:bg-[#2a2a2a] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Sau
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Create User Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-[#1a1a1a] border-[#2a2a2a] text-white">
             <DialogHeader>
-            <DialogTitle>Thêm người dùng mới</DialogTitle>
-              <DialogDescription>
+            <DialogTitle className="text-white">Thêm người dùng mới</DialogTitle>
+              <DialogDescription className="text-gray-400">
               Điền thông tin để tạo người dùng mới trong hệ thống
               </DialogDescription>
             </DialogHeader>
           <Form {...createForm}>
-            <form onSubmit={createForm.handleSubmit(handleCreateUser)} className="space-y-4">
-              <FormField
-                control={createForm.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tên đăng nhập</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Nhập tên đăng nhập" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" {...field} placeholder="email@example.com" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Mật khẩu</FormLabel>
-                    <FormControl>
-                      <Input type="password" {...field} placeholder="Nhập mật khẩu" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Vai trò</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <form onSubmit={createForm.handleSubmit(handleCreateUser)}>
+              <div className="grid gap-4 py-4">
+                <FormField
+                  control={createForm.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-gray-300">Tên đăng nhập</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Chọn vai trò" />
-                        </SelectTrigger>
+                        <Input 
+                          {...field} 
+                          placeholder="Nhập tên đăng nhập" 
+                          className="bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="STUDENT">Sinh viên</SelectItem>
-                        <SelectItem value="ADMIN">Quản trị viên</SelectItem>
-                        <SelectItem value="SPSO">SPSO</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-0.5">
-                      <FormLabel>Trạng thái hoạt động</FormLabel>
-                              <div className="text-sm text-gray-500">
-                        Cho phép người dùng đăng nhập vào hệ thống
-                              </div>
-                            </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <div className="flex justify-end gap-2 pt-4">
+                      <FormMessage className="text-red-400" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-gray-300">Email</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="email" 
+                          {...field} 
+                          placeholder="email@example.com" 
+                          className="bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-400" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-gray-300">Mật khẩu</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          {...field} 
+                          placeholder="Nhập mật khẩu" 
+                          className="bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-400" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-gray-300">Vai trò</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="w-full bg-[#2a2a2a] border-[#3a3a3a] text-white focus:ring-[#4a4a4a]">
+                            <SelectValue placeholder="Chọn vai trò" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-[#2a2a2a] border-[#3a3a3a] text-white">
+                          <SelectItem value="STUDENT">Sinh viên</SelectItem>
+                          <SelectItem value="ADMIN">Quản trị viên</SelectItem>
+                          <SelectItem value="SPSO">SPSO</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="text-red-400" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2 flex items-center gap-2 pt-2">
+                      <FormControl>
+                        <Switch
+                          id="isActive"
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          className="data-[state=checked]:bg-[#3a82f6] data-[state=checked]:border-[#3a82f6]"
+                        />
+                      </FormControl>
+                      <FormLabel htmlFor="isActive" className="cursor-pointer text-gray-300 !mt-0">
+                        Trạng thái hoạt động
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <DialogFooter>
                 <Button
                   type="button"
                   variant="outline"
@@ -464,10 +615,11 @@ export default function StudentsManagementPage() {
                     createForm.reset()
                   }}
                   disabled={isSubmitting}
+                  className="border-[#2a2a2a] bg-transparent text-white hover:bg-[#2a2a2a] hover:text-white"
                 >
                   Hủy
                 </Button>
-                <Button type="submit" disabled={isSubmitting} className="bg-indigo-600 hover:bg-indigo-700">
+                <Button type="submit" disabled={isSubmitting} className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white">
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -477,7 +629,7 @@ export default function StudentsManagementPage() {
                     "Tạo mới"
                   )}
                 </Button>
-                        </div>
+              </DialogFooter>
             </form>
           </Form>
         </DialogContent>
@@ -485,97 +637,112 @@ export default function StudentsManagementPage() {
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-[#1a1a1a] border-[#2a2a2a] text-white">
           <DialogHeader>
-            <DialogTitle>Chỉnh sửa người dùng</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-white">Chỉnh sửa người dùng</DialogTitle>
+            <DialogDescription className="text-gray-400">
               Cập nhật thông tin người dùng
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(handleEditUser)} className="space-y-4">
-              <FormField
-                control={editForm.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tên đăng nhập</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Nhập tên đăng nhập" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" {...field} placeholder="email@example.com" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Mật khẩu mới (để trống nếu không đổi)</FormLabel>
-                    <FormControl>
-                      <Input type="password" {...field} placeholder="Nhập mật khẩu mới" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Vai trò</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+            <form onSubmit={editForm.handleSubmit(handleEditUser)}>
+              <div className="grid gap-4 py-4">
+                <FormField
+                  control={editForm.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-gray-300">Tên đăng nhập</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Chọn vai trò" />
-                        </SelectTrigger>
+                        <Input 
+                          {...field} 
+                          placeholder="Nhập tên đăng nhập" 
+                          className="bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="STUDENT">Sinh viên</SelectItem>
-                        <SelectItem value="ADMIN">Quản trị viên</SelectItem>
-                        <SelectItem value="SPSO">SPSO</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-0.5">
-                      <FormLabel>Trạng thái hoạt động</FormLabel>
-                      <div className="text-sm text-gray-500">
-                        Cho phép người dùng đăng nhập vào hệ thống
-                  </div>
-                </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <div className="flex justify-end gap-2 pt-4">
+                      <FormMessage className="text-red-400" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-gray-300">Email</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="email" 
+                          {...field} 
+                          placeholder="email@example.com" 
+                          className="bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-400" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-gray-300">Mật khẩu mới (để trống nếu không đổi)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          {...field} 
+                          placeholder="Nhập mật khẩu mới" 
+                          className="bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-400" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-gray-300">Vai trò</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="w-full bg-[#2a2a2a] border-[#3a3a3a] text-white focus:ring-[#4a4a4a]">
+                            <SelectValue placeholder="Chọn vai trò" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-[#2a2a2a] border-[#3a3a3a] text-white">
+                          <SelectItem value="STUDENT">Sinh viên</SelectItem>
+                          <SelectItem value="ADMIN">Quản trị viên</SelectItem>
+                          <SelectItem value="SPSO">SPSO</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="text-red-400" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2 flex items-center gap-2 pt-2">
+                      <FormControl>
+                        <Switch
+                          id="isActive-edit"
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          className="data-[state=checked]:bg-[#3a82f6] data-[state=checked]:border-[#3a82f6]"
+                        />
+                      </FormControl>
+                      <FormLabel htmlFor="isActive-edit" className="cursor-pointer text-gray-300 !mt-0">
+                        Trạng thái hoạt động
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <DialogFooter>
                 <Button
                   type="button"
                   variant="outline"
@@ -585,10 +752,11 @@ export default function StudentsManagementPage() {
                     editForm.reset()
                   }}
                   disabled={isSubmitting}
+                  className="border-[#2a2a2a] bg-transparent text-white hover:bg-[#2a2a2a] hover:text-white"
                 >
                   Hủy
                 </Button>
-                <Button type="submit" disabled={isSubmitting} className="bg-indigo-600 hover:bg-indigo-700">
+                <Button type="submit" disabled={isSubmitting} className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white">
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -597,8 +765,8 @@ export default function StudentsManagementPage() {
                   ) : (
                     "Cập nhật"
                   )}
-                    </Button>
-              </div>
+                </Button>
+              </DialogFooter>
             </form>
           </Form>
           </DialogContent>
@@ -606,19 +774,34 @@ export default function StudentsManagementPage() {
 
       {/* Lock User Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Khóa tài khoản?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Người dùng <strong>{selectedUser?.username}</strong> ({selectedUser?.email}) sẽ bị vô hiệu hóa và không thể đăng nhập vào hệ thống.
+        <AlertDialogContent className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
+          {/* Close Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsDeleteDialogOpen(false)}
+            className="absolute right-4 top-4 h-8 w-8 text-gray-400 hover:text-white hover:bg-[#2a2a2a] z-10"
+            disabled={isSubmitting}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+          <AlertDialogHeader className="pr-8">
+            <AlertDialogTitle className="text-white">Khóa tài khoản?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400">
+              Người dùng <strong className="text-white">{selectedUser?.username}</strong> ({selectedUser?.email}) sẽ bị vô hiệu hóa và không thể đăng nhập vào hệ thống.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Hủy</AlertDialogCancel>
+            <AlertDialogCancel 
+              disabled={isSubmitting} 
+              className="border-[#3a3a3a] bg-[#2a2a2a] text-white hover:bg-[#3a3a3a] hover:text-white"
+            >
+              Hủy
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteUser}
               disabled={isSubmitting}
-              className="bg-amber-600 hover:bg-amber-700"
+              className="bg-amber-900/30 hover:bg-amber-900/50 text-amber-400 border-amber-900/50"
             >
               {isSubmitting ? (
                 <>
