@@ -140,13 +140,12 @@ jobs:
 
       - name: Start/Restart Frontend with PM2
         run: |
-          echo "Khởi động frontend với PM2..."
-          # Xóa process cũ nếu có (không fail nếu không tồn tại)
-          pm2 delete frontend-client || true
-          # Khởi động Next.js với port 3000 qua flag -p
-          pm2 start npm --name "frontend-client" -- start -- -p 3000
+          echo "Khởi động/restart frontend với PM2..."
+          # Dùng restart để giữ nguyên ID và cấu hình, chỉ cập nhật code mới
+          # Nếu process chưa tồn tại thì start mới
+          pm2 restart frontend-client --update-env || pm2 start npm --name "frontend-client" -- start -- -p 3000
           pm2 save
-          echo "Frontend đã được khởi động trên port 3000"
+          echo "Frontend đã được khởi động/restart trên port 3000"
 
       - name: Wait for server to be ready
         run: |
