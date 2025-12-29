@@ -18,14 +18,28 @@ export default function AdminDashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true)
+      console.log('[Dashboard] Loading dashboard data...')
+      
       const [statsData, activitiesData] = await Promise.all([
         getDashboardStats(),
         getRecentActivities(10),
       ])
+      
+      console.log('[Dashboard] Data loaded successfully:', {
+        stats: statsData,
+        activitiesCount: activitiesData.length,
+      })
+      
       setStats(statsData)
       setActivities(activitiesData)
     } catch (error: any) {
-      console.error("Error loading dashboard data:", error)
+      console.error("[Dashboard] Error loading dashboard data:", error)
+      console.error("[Dashboard] Error details:", {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        stack: error?.stack,
+      })
       
       // Provide more specific error messages
       if (error?.message?.includes('Cannot connect to backend server')) {

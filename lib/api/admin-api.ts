@@ -33,20 +33,64 @@ export interface RecentActivity {
  * Lấy thống kê tổng quan cho Dashboard
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const response = await apiClient.get<ApiResponse<DashboardStats>>(
-    '/admin/dashboard/stats'
-  );
-  return response.data.data!;
+  try {
+    console.log('[admin-api] Calling getDashboardStats...');
+    const response = await apiClient.get<ApiResponse<DashboardStats>>(
+      '/admin/dashboard/stats'
+    );
+    console.log('[admin-api] getDashboardStats response:', {
+      status: response.status,
+      success: response.data.success,
+      hasData: !!response.data.data,
+      data: response.data.data,
+    });
+    
+    if (!response.data.success || !response.data.data) {
+      console.error('[admin-api] getDashboardStats failed:', response.data);
+      throw new Error(response.data.message || 'Failed to get dashboard stats');
+    }
+    
+    return response.data.data;
+  } catch (error: any) {
+    console.error('[admin-api] getDashboardStats error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
+    throw error;
+  }
 }
 
 /**
  * Lấy các hoạt động in ấn gần đây
  */
 export async function getRecentActivities(limit: number = 10): Promise<RecentActivity[]> {
-  const response = await apiClient.get<ApiResponse<RecentActivity[]>>(
-    `/admin/dashboard/recent-activities?limit=${limit}`
-  );
-  return response.data.data!;
+  try {
+    console.log('[admin-api] Calling getRecentActivities with limit:', limit);
+    const response = await apiClient.get<ApiResponse<RecentActivity[]>>(
+      `/admin/dashboard/recent-activities?limit=${limit}`
+    );
+    console.log('[admin-api] getRecentActivities response:', {
+      status: response.status,
+      success: response.data.success,
+      hasData: !!response.data.data,
+      dataLength: response.data.data?.length || 0,
+    });
+    
+    if (!response.data.success || !response.data.data) {
+      console.error('[admin-api] getRecentActivities failed:', response.data);
+      throw new Error(response.data.message || 'Failed to get recent activities');
+    }
+    
+    return response.data.data;
+  } catch (error: any) {
+    console.error('[admin-api] getRecentActivities error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
+    throw error;
+  }
 }
 
 // ====== SYSTEM CONFIGURATION API ======
