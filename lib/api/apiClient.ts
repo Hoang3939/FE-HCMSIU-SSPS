@@ -164,26 +164,6 @@ apiClient.interceptors.response.use(
           });
         }
         
-        // Clear auth state and redirect to login
-        useAuthStore.getState().clearAuth();
-        
-        // Only redirect if on client-side (browser)
-        if (typeof window !== 'undefined') {
-          // Check if logout is in progress - if so, don't override the redirect
-          const isLogoutInProgress = sessionStorage.getItem('__logout_in_progress__') === 'true';
-          
-          if (isLogoutInProgress) {
-            console.log('[ApiClient] Logout in progress, skipping auto-redirect to avoid override');
-            return Promise.reject(refreshError);
-          }
-          
-          // Avoid redirect loops - only redirect if not already on login page
-          if (window.location.pathname !== '/login') {
-            // CRITICAL: Include query param to prevent middleware redirect loop
-            const timestamp = Date.now();
-            const loginUrl = `/login?logout=success&t=${timestamp}`;
-            console.log('[ApiClient] Auto-redirecting to login:', loginUrl);
-            window.location.href = loginUrl;
         // Chỉ clear auth và redirect nếu là lỗi auth (401, 403)
         // Không redirect nếu là lỗi server (500) hoặc network
         if (isAuthError) {
@@ -192,9 +172,21 @@ apiClient.interceptors.response.use(
           
           // Only redirect if on client-side (browser)
           if (typeof window !== 'undefined') {
+            // Check if logout is in progress - if so, don't override the redirect
+            const isLogoutInProgress = sessionStorage.getItem('__logout_in_progress__') === 'true';
+            
+            if (isLogoutInProgress) {
+              console.log('[ApiClient] Logout in progress, skipping auto-redirect to avoid override');
+              return Promise.reject(refreshError);
+            }
+            
             // Avoid redirect loops - only redirect if not already on login page
             if (window.location.pathname !== '/login') {
-              window.location.href = '/login';
+              // CRITICAL: Include query param to prevent middleware redirect loop
+              const timestamp = Date.now();
+              const loginUrl = `/login?logout=success&t=${timestamp}`;
+              console.log('[ApiClient] Auto-redirecting to login:', loginUrl);
+              window.location.href = loginUrl;
             }
           }
         } else {

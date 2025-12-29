@@ -35,13 +35,13 @@ function decodeJWT(token: string): { role?: string; [key: string]: any } | null 
 
     return decodedPayload
   } catch (error) {
-    console.error('[Middleware] JWT decode error:', error)
+    console.error('[Proxy] JWT decode error:', error)
     return null
   }
 }
 
 /**
- * Middleware để bảo vệ protected routes với Authentication & RBAC
+ * Proxy để bảo vệ protected routes với Authentication & RBAC
  * 
  * Protected Routes:
  * - /dashboard/* - Requires authentication (any role)
@@ -60,7 +60,7 @@ function decodeJWT(token: string): { role?: string; [key: string]: any } | null 
  *    - IF authenticated AND has correct role:
  *      - Allow access
  */
-export function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const refreshToken = request.cookies.get('refreshToken')?.value
 
@@ -81,7 +81,7 @@ export function middleware(request: NextRequest) {
     // Check if user has valid token
     if (!refreshToken || refreshToken.trim() === '') {
       // User is NOT authenticated - redirect to login
-      console.log('[Middleware] ❌ Unauthenticated access to protected route:', pathname)
+      console.log('[Proxy] ❌ Unauthenticated access to protected route:', pathname)
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)
@@ -92,21 +92,21 @@ export function middleware(request: NextRequest) {
     
     if (!decodedPayload) {
       // Invalid token format - redirect to login
-      console.log('[Middleware] ❌ Invalid token format, redirecting to /login')
+      console.log('[Proxy] ❌ Invalid token format, redirecting to /login')
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)
     }
 
     const userRole = decodedPayload.role
-    console.log('[Middleware] User authenticated, role:', userRole, 'path:', pathname)
+    console.log('[Proxy] User authenticated, role:', userRole, 'path:', pathname)
 
     // ============================================
     // Case 1.1: Admin Routes (require ADMIN role)
     // ============================================
     if (pathname.startsWith('/admin')) {
       if (userRole !== 'ADMIN') {
-        console.log('[Middleware] ⚠️ Unauthorized access attempt:', {
+        console.log('[Proxy] ⚠️ Unauthorized access attempt:', {
           role: userRole,
           path: pathname,
         })
@@ -118,7 +118,7 @@ export function middleware(request: NextRequest) {
       }
 
       // User IS authenticated AND has ADMIN role - allow access
-      console.log('[Middleware] ✅ Admin user authenticated, allowing access')
+      console.log('[Proxy] ✅ Admin user authenticated, allowing access')
       return NextResponse.next()
     }
 
@@ -126,7 +126,7 @@ export function middleware(request: NextRequest) {
     // Case 1.2: Other Protected Routes (any authenticated user)
     // ============================================
     // User is authenticated - allow access to /dashboard, /upload, etc.
-    console.log('[Middleware] ✅ Authenticated user, allowing access to:', pathname)
+    console.log('[Proxy] ✅ Authenticated user, allowing access to:', pathname)
     return NextResponse.next()
   }
 
@@ -142,25 +142,25 @@ export function middleware(request: NextRequest) {
     const logoutParam = request.nextUrl.searchParams.get('logout')
     const isLogoutRedirect = logoutParam === 'success'
     
-    console.log('[Middleware] ========================================');
-    console.log('[Middleware] Login page check:');
-    console.log('[Middleware] - pathname:', pathname);
-    console.log('[Middleware] - ALL query params:', allParams);
-    console.log('[Middleware] - logoutParam:', logoutParam);
-    console.log('[Middleware] - isLogoutRedirect:', isLogoutRedirect);
-    console.log('[Middleware] - hasToken:', !!refreshToken);
-    console.log('[Middleware] - full URL:', request.url);
-    console.log('[Middleware] - request.nextUrl.toString():', request.nextUrl.toString());
-    console.log('[Middleware] ========================================');
+    console.log('[Proxy] ========================================');
+    console.log('[Proxy] Login page check:');
+    console.log('[Proxy] - pathname:', pathname);
+    console.log('[Proxy] - ALL query params:', allParams);
+    console.log('[Proxy] - logoutParam:', logoutParam);
+    console.log('[Proxy] - isLogoutRedirect:', isLogoutRedirect);
+    console.log('[Proxy] - hasToken:', !!refreshToken);
+    console.log('[Proxy] - full URL:', request.url);
+    console.log('[Proxy] - request.nextUrl.toString():', request.nextUrl.toString());
+    console.log('[Proxy] ========================================');
     
     // CRITICAL: If logout redirect detected OR if user has token but wants to access /login
     // (could be manual logout or wanting to login with different account)
     // Force delete cookie to allow access to login page
     if (isLogoutRedirect || (refreshToken && refreshToken.trim() !== '')) {
       if (isLogoutRedirect) {
-        console.log('[Middleware] 🔄 Logout redirect detected - Force deleting cookie as fail-safe')
+        console.log('[Proxy] 🔄 Logout redirect detected - Force deleting cookie as fail-safe')
       } else {
-        console.log('[Middleware] ⚠️ User has token but accessing /login - Force deleting cookie (manual logout?)')
+        console.log('[Proxy] ⚠️ User has token but accessing /login - Force deleting cookie (manual logout?)')
       }
       
       // Create response to allow access to login page
@@ -190,12 +190,12 @@ export function middleware(request: NextRequest) {
         `refreshToken=; Path=/; HttpOnly; SameSite=Strict; ${isProduction ? 'Secure;' : ''} Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`
       )
       
-      console.log('[Middleware] ✅ Cookie forcefully deleted, allowing access to /login')
+      console.log('[Proxy] ✅ Cookie forcefully deleted, allowing access to /login')
       return response // CRITICAL: Return immediately, do NOT check token or redirect
     }
     
     // User is not authenticated and no token - allow access to login page
-    console.log('[Middleware] ✅ No token found, allowing access to /login')
+    console.log('[Proxy] ✅ No token found, allowing access to /login')
     return NextResponse.next()
   }
 
