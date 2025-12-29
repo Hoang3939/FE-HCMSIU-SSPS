@@ -251,6 +251,7 @@ export async function login(username: string, password: string) {
     headers: {
       'Content-Type': 'application/json',
     },
+    credentials: 'include', // CRITICAL: Include cookies in request and response
     body: JSON.stringify({ username, password }),
   });
 
@@ -261,11 +262,14 @@ export async function login(username: string, password: string) {
 
   const data = await response.json();
 
-  // Save token to localStorage
+  // Save token to localStorage (for client-side use)
   if (typeof window !== 'undefined' && data.token) {
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
   }
+
+  // Note: refreshToken is automatically set in HttpOnly cookie by backend
+  // No need to manually set it - it's handled by the browser
 
   return data;
 }

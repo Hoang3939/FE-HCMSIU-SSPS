@@ -28,18 +28,16 @@ class AuthAPI {
     // Clear old auth state before login
     useAuthStore.getState().clearAuth();
     
-    // Use fetch directly to avoid interceptor adding old Authorization header
-    const response = await fetch(
-      `${API_BASE_URL}/api${API_ENDPOINTS.auth.login}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Send cookies
-        body: JSON.stringify(credentials),
-      }
-    );
+    // Use Next.js API route proxy to handle cookies properly (same-origin)
+    // This ensures cookies set by backend are properly forwarded to browser
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // Send cookies
+      body: JSON.stringify(credentials),
+    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ 
