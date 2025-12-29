@@ -132,219 +132,233 @@ export default function SPSOHistoryPage() {
   )
 
   return (
-    <div className="p-6">
-        <div className="mb-6 text-center sm:mb-8">
-          <h1 className="mb-2 text-3xl font-bold sm:text-4xl">Lịch sử in ấn</h1>
-          <p className="text-gray-600">Xem lịch sử in ấn của tất cả sinh viên</p>
-        </div>
+    <div className="p-6 bg-[#121212] min-h-screen">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-white mb-2">Lịch sử in ấn</h1>
+        <p className="text-gray-400">Xem lịch sử in ấn của tất cả sinh viên</p>
+      </div>
 
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Bộ lọc</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-2">
-                  <Label htmlFor="search">Tìm kiếm</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <Input
-                      id="search"
-                      placeholder="Tên file, sinh viên..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="bg-gray-50 pl-10"
-                    />
-                  </div>
-                </div>
+      {/* Filters */}
+      <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white mb-4">
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            {/* Search Bar - Full Width Row */}
+            <div className="space-y-2">
+              <Label htmlFor="search" className="text-gray-300">Tìm kiếm</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  id="search"
+                  placeholder="Tên file, sinh viên..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-[#4D47C3] focus-visible:shadow-[0_0_0_4px_rgba(77,71,195,0.1)] pl-10 transition-all duration-300"
+                />
+              </div>
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="studentId">Mã sinh viên</Label>
-                  <Input
-                    id="studentId"
-                    placeholder="SV001"
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    className="bg-gray-50"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="startDate">Từ ngày</Label>
-                  <div className="relative">
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-gray-50"
-                    />
-                    <Calendar className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="endDate">Đến ngày</Label>
-                  <div className="relative">
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-gray-50"
-                    />
-                    <Calendar className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  </div>
-                </div>
+            {/* Filter Row - 4 Equal Columns */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-2">
+                <Label htmlFor="studentId" className="text-gray-300">Mã sinh viên</Label>
+                <Input
+                  id="studentId"
+                  placeholder="SV001"
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value)}
+                  className="bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
+                />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="printer">Máy in</Label>
+                <Label htmlFor="printer" className="text-gray-300">Máy in</Label>
                 <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
-                  <SelectTrigger id="printer" className="bg-gray-50">
+                  <SelectTrigger id="printer" className="w-full bg-[#2a2a2a] border-[#3a3a3a] text-white focus:ring-[#4a4a4a]">
                     <SelectValue placeholder="Tất cả máy in" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#2a2a2a] border-[#3a3a3a] text-white">
                     <SelectItem value="all">Tất cả máy in</SelectItem>
                     {printers.map((printer) => (
-                      <SelectItem key={printer.id} value={printer.id}>
+                      <SelectItem key={printer.id} value={printer.id} className="hover:bg-[#3a3a3a]">
                         {printer.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Summary Statistics */}
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Tổng số lần in</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summary.totalJobs}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Tổng trang (A4)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summary.totalPagesA4}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                A4: {summary.a4Pages} | A3: {summary.a3Pages} (tương đương {summary.a3Pages * 2} A4)
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Trang A4</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{summary.a4Pages}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Trang A3</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{summary.a3Pages}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                = {summary.a3Pages * 2} trang A4
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Print History Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Danh sách in ấn ({filteredRecords.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-indigo-600 text-white">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Mã SV</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Tên SV</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Tên tài liệu</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Thời gian</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Máy in</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Số trang</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredRecords.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                        Không có dữ liệu
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredRecords.map((record) => (
-                      <tr key={record.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-4 text-sm font-medium sm:px-6">{record.studentId}</td>
-                        <td className="px-4 py-4 text-sm sm:px-6">{record.studentName}</td>
-                        <td className="px-4 py-4 text-sm sm:px-6">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-gray-400" />
-                            {record.fileName}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-600 sm:px-6">
-                          {format(new Date(record.date), "dd/MM/yyyy", { locale: vi })} {record.time}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-600 sm:px-6">{record.printer}</td>
-                        <td className="px-4 py-4 text-sm sm:px-6">
-                          {record.pages} trang {record.pageSize}
-                        </td>
-                        <td className="px-4 py-4 sm:px-6">
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
-                              record.status === "completed"
-                                ? "bg-green-50 text-green-600"
-                                : "bg-red-50 text-red-600"
-                            }`}
-                          >
-                            {record.status === "completed" ? "Hoàn thành" : "Thất bại"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {filteredRecords.length > 0 && (
-              <div className="mt-4 flex flex-col items-center justify-between gap-4 border-t border-gray-100 px-4 py-4 sm:flex-row sm:px-6">
-                <div className="text-sm text-gray-500">
-                  Hiển thị 1-{filteredRecords.length} trong tổng số {filteredRecords.length} bản ghi
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled>
-                    Trước
-                  </Button>
-                  <Button variant="default" size="sm" className="bg-indigo-600">
-                    1
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Sau
-                  </Button>
+              <div className="space-y-2">
+                <Label htmlFor="startDate" className="text-gray-300">Từ ngày</Label>
+                <div className="relative">
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-[#2a2a2a] border-[#3a3a3a] text-white focus-visible:ring-2 focus-visible:ring-[#4D47C3] date-picker-dark"
+                  />
+                  <Calendar className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 </div>
               </div>
-            )}
+
+              <div className="space-y-2">
+                <Label htmlFor="endDate" className="text-gray-300">Đến ngày</Label>
+                <div className="relative">
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="bg-[#2a2a2a] border-[#3a3a3a] text-white focus-visible:ring-2 focus-visible:ring-[#4D47C3] date-picker-dark"
+                  />
+                  <Calendar className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary Statistics */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Tổng số lần in</p>
+                <p className="text-2xl font-bold text-white">{summary.totalJobs}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
+        <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Tổng trang (A4)</p>
+                <p className="text-2xl font-bold text-white">{summary.totalPagesA4}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  A4: {summary.a4Pages} | A3: {summary.a3Pages} (tương đương {summary.a3Pages * 2} A4)
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Trang A4</p>
+                <p className="text-2xl font-bold text-blue-400">{summary.a4Pages}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Trang A3</p>
+                <p className="text-2xl font-bold text-green-400">{summary.a3Pages}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  = {summary.a3Pages * 2} trang A4
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Print History Table */}
+      <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
+        <CardHeader>
+          <CardTitle className="text-white font-semibold text-xl">Danh sách in ấn ({filteredRecords.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-[#2a2a2a] text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Mã SV</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Tên SV</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Tên tài liệu</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Thời gian</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Máy in</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Số trang</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold sm:px-6">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#2a2a2a]">
+                {filteredRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                      Không có dữ liệu
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRecords.map((record, index) => (
+                    <tr 
+                      key={record.id} 
+                      className="hover:bg-[#252525] transition-colors"
+                      style={{
+                        backgroundColor: index % 2 === 0 ? '#1E1E1E' : '#252525'
+                      }}
+                    >
+                      <td className="px-4 py-4 text-sm font-medium text-white sm:px-6">{record.studentId}</td>
+                      <td className="px-4 py-4 text-sm text-gray-300 sm:px-6">{record.studentName}</td>
+                      <td className="px-4 py-4 text-sm sm:px-6">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-[#A7A3FF]" />
+                          <span className="text-gray-300">{record.fileName}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-400 sm:px-6">
+                        {format(new Date(record.date), "dd/MM/yyyy", { locale: vi })} {record.time}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-400 sm:px-6">{record.printer}</td>
+                      <td className="px-4 py-4 text-sm text-gray-300 sm:px-6">
+                        {record.pages} trang {record.pageSize}
+                      </td>
+                      <td className="px-4 py-4 sm:px-6">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
+                            record.status === "completed"
+                              ? "bg-green-900/30 text-green-400"
+                              : "bg-red-900/30 text-red-400"
+                          }`}
+                        >
+                          {record.status === "completed" ? "Hoàn thành" : "Thất bại"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {filteredRecords.length > 0 && (
+            <div className="mt-4 flex flex-col items-center justify-between gap-4 border-t border-[#2a2a2a] px-4 py-4 sm:flex-row sm:px-6">
+              <div className="text-sm text-gray-400">
+                Hiển thị 1-{filteredRecords.length} trong tổng số {filteredRecords.length} bản ghi
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled className="border-[#3a3a3a] bg-transparent text-gray-400">
+                  Trước
+                </Button>
+                <Button variant="default" size="sm" className="bg-[#4D47C3] hover:bg-[#3d37a3] text-white">
+                  1
+                </Button>
+                <Button variant="outline" size="sm" className="border-[#3a3a3a] bg-transparent text-gray-300 hover:bg-[#2a2a2a] hover:text-white">
+                  Sau
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
