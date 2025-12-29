@@ -219,7 +219,7 @@ export default function HistoryPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header userRole={user.role.toLowerCase()} balance={balance} userName={user.username} />
+      <Header userRole={user.role.toLowerCase() as "student" | "spso"} balance={balance} userName={user.username} />
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-12">
         <div className="mb-6 text-center sm:mb-8">

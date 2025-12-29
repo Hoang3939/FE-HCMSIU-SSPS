@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { FileText, LogOut, Menu, X } from "lucide-react"
+import { FileText, LogOut, Menu, X, KeyRound } from "lucide-react"
 import { useState } from "react"
 import {
   DropdownMenu,
@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal"
 
 interface HeaderProps {
   userRole?: "student" | "spso"
@@ -21,6 +22,7 @@ interface HeaderProps {
 export function Header({ userRole = "student", balance = 50, userName = "Nguyễn Văn A" }: HeaderProps) {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
 
   const studentNav = [
     { href: "/dashboard", label: "Trang chủ" },
@@ -86,6 +88,10 @@ export function Header({ userRole = "student", balance = 50, userName = "Nguyễ
                 <div className="text-sm font-medium">{userName}</div>
                 <div className="text-xs text-gray-500">{userRole === "student" ? "Sinh viên" : "SPSO"}</div>
               </div>
+              <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
+                <KeyRound className="mr-2 h-4 w-4" />
+                Đổi mật khẩu
+              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/login" className="flex items-center gap-2">
                   <LogOut className="h-4 w-4" />
@@ -132,6 +138,8 @@ export function Header({ userRole = "student", balance = 50, userName = "Nguyễ
           </nav>
         </div>
       )}
+
+      <ChangePasswordModal open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
     </header>
   )
 }

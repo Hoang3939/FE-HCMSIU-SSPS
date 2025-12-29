@@ -99,13 +99,8 @@ export async function getUploadLimits(): Promise<{
     return response.data.data!;
   } catch (error: any) {
     console.error('[admin-api] Error getting upload limits:', error);
-    if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED') {
-      throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra backend có đang chạy không.');
-    }
-    if (error.response?.status === 404) {
-      throw new Error('API endpoint không tồn tại. Vui lòng kiểm tra backend routes.');
-    }
-    // Fallback to default values
+    // Không throw error, chỉ log và trả về default values
+    // Vì đây là public endpoint và có thể không có config trong database
     console.warn('[admin-api] Using default upload limits');
     return {
       max_file_size_mb: 100,

@@ -30,14 +30,14 @@ export function getRedirectUrlAfterLogin(
     }
     return '/admin/dashboard'
   } else if (role === 'STUDENT') {
-    // STUDENT: Luôn về /dashboard (hoặc /student nếu có)
+    // STUDENT: Luôn về /upload
     // Bỏ qua redirectUrl nếu là admin route
     if (redirectUrl && redirectUrl.startsWith('/admin')) {
-      // STUDENT cố truy cập admin URL, bỏ qua và về dashboard
-      return '/dashboard'
+      // STUDENT cố truy cập admin URL, bỏ qua và về upload
+      return '/upload'
     }
     // Nếu có redirectUrl hợp lệ (không phải admin), có thể dùng
-    return redirectUrl || '/dashboard'
+    return redirectUrl || '/upload'
   }
 
   // Role không hợp lệ, về trang chủ

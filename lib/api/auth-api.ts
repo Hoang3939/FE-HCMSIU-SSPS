@@ -156,6 +156,118 @@ class AuthAPI {
   }
 
   /**
+   * Yêu cầu gửi mã OTP để reset password
+   */
+  async forgotPassword(email: string): Promise<void> {
+    const response = await fetch(
+      `${API_BASE_URL}/api${API_ENDPOINTS.auth.forgotPassword}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({
+        message: 'Không thể gửi mã OTP',
+      }));
+      throw new Error(errorData.message || 'Không thể gửi mã OTP');
+    }
+
+    const data: ApiResponse<void> = await response.json();
+    if (!data.success) {
+      throw new Error(data.message || 'Không thể gửi mã OTP');
+    }
+  }
+
+  /**
+   * Xác thực mã OTP
+   */
+  async verifyOTP(email: string, otpCode: string): Promise<{ userID: string }> {
+    const response = await fetch(
+      `${API_BASE_URL}/api${API_ENDPOINTS.auth.verifyOTP}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, otpCode }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({
+        message: 'Mã OTP không hợp lệ',
+      }));
+      throw new Error(errorData.message || 'Mã OTP không hợp lệ');
+    }
+
+    const data: ApiResponse<{ userID: string }> = await response.json();
+    if (!data.success || !data.data) {
+      throw new Error(data.message || 'Mã OTP không hợp lệ');
+    }
+
+    return data.data;
+  }
+
+  /**
+   * Reset password sau khi verify OTP
+   */
+  async resetPassword(
+    userID: string,
+    newPassword: string,
+    confirmPassword: string
+  ): Promise<void> {
+    const response = await fetch(
+      `${API_BASE_URL}/api${API_ENDPOINTS.auth.resetPassword}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userID, newPassword, confirmPassword }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({
+        message: 'Không thể đặt lại mật khẩu',
+      }));
+      throw new Error(errorData.message || 'Không thể đặt lại mật khẩu');
+    }
+
+    const data: ApiResponse<void> = await response.json();
+    if (!data.success) {
+      throw new Error(data.message || 'Không thể đặt lại mật khẩu');
+    }
+  }
+
+  /**
+   * Đổi mật khẩu khi đã đăng nhập
+   */
+  async changePassword(
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string
+  ): Promise<void> {
+    const response = await apiClient.post<ApiResponse<void>>(
+      API_ENDPOINTS.auth.changePassword,
+      {
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      }
+    );
+
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'Không thể đổi mật khẩu');
+    }
+  }
+
+  /**
    * Refresh token manually (usually not needed, handled automatically by interceptor)
    * Only use when you need to refresh token manually
    */

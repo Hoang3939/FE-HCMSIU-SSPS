@@ -8,6 +8,10 @@ export const API_ENDPOINTS = {
     login: '/auth/login',
     refreshToken: '/auth/refresh-token',
     logout: '/auth/logout',
+    forgotPassword: '/auth/forgot-password',
+    verifyOTP: '/auth/verify-otp',
+    resetPassword: '/auth/reset-password',
+    changePassword: '/auth/change-password',
   },
   printers: {
     list: '/admin/printers',

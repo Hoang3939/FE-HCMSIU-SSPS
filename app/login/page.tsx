@@ -226,7 +226,7 @@ function LoginForm() {
                   {/* Forgot Password Link - Small, gray, aligned right below input */}
                   <div className="text-right">
                     <Link 
-                      href="#" 
+                      href="/forgot-password" 
                       className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
                     >
                       Quên mật khẩu?
