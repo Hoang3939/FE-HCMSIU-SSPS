@@ -144,9 +144,9 @@ jobs:
           echo "Khởi động/restart frontend với PM2..."
           # Xóa process cũ để đảm bảo cấu hình mới được áp dụng (script args)
           pm2 delete frontend-client || true
-          # Next.js nhận PORT qua biến môi trường, không qua flag -p
-          # Start lại với lệnh mới (không có -p 3000)
-          PORT=3000 pm2 start npm --name "frontend-client" -- start
+          # Next.js nhận PORT qua biến môi trường từ .env.local, không qua flag -p
+          # Sử dụng --update-env để đảm bảo env vars được cập nhật
+          PORT=3000 pm2 start npm --name "frontend-client" --update-env -- start
           pm2 save
           echo "Frontend đã được khởi động trên port 3000"
 
