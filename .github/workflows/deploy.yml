@@ -41,16 +41,25 @@ jobs:
         run: |
           echo "Tạo/cập nhật file .env.local từ GitHub Secrets..."
           # Luôn tạo lại file .env.local để đảm bảo có giá trị mới nhất từ secrets
+          # LƯU Ý: Khi sử dụng Cloudflare Tunnel:
+          # - Frontend: https://ssps.acdm.site -> tunnel -> localhost:3000
+          # - Backend: https://api.acdm.site -> tunnel -> localhost:3001
+          # NEXT_PUBLIC_API_BASE_URL phải là URL public qua Cloudflare Tunnel (https://api.acdm.site)
+          # KHÔNG dùng localhost vì browser sẽ chặn CORS khi FE và BE ở khác origin
           cat > .env.local << EOF
           # Next.js Public Environment Variables
           # Các biến NEXT_PUBLIC_* sẽ được expose ra client-side
-          NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001' }}
+          # QUAN TRỌNG: Phải dùng URL public qua Cloudflare Tunnel, không dùng localhost
+          NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'https://api.acdm.site' }}
 
           # Server-side Environment Variables (không expose ra client)
           PORT=3000
+          NODE_ENV=production
           EOF
           echo "File .env.local đã được tạo/cập nhật từ secrets"
-          echo "NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001' }}"
+          echo "NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'https://api.acdm.site' }}"
+          echo "⚠️  LƯU Ý: NEXT_PUBLIC_API_BASE_URL phải là URL public qua Cloudflare Tunnel (ví dụ: https://api.acdm.site)"
+          echo "⚠️  KHÔNG dùng localhost vì browser sẽ chặn CORS khi FE và BE ở khác origin"
 
       - name: Verify required environment variables
         run: |

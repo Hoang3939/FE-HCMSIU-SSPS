@@ -10,11 +10,14 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     // Get API base URL from environment variable (server-side)
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+    // LƯU Ý: Khi sử dụng Cloudflare Tunnel, NEXT_PUBLIC_API_BASE_URL phải là URL public (https://api.acdm.site)
+    // KHÔNG dùng localhost vì Next.js API route chạy server-side và cần gọi backend qua public URL
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.acdm.site';
     
     console.log('[Login API Route] ========================================');
     console.log('[Login API Route] 📥 Received login request');
     console.log('[Login API Route] API_BASE_URL:', API_BASE_URL);
+    console.log('[Login API Route] NODE_ENV:', process.env.NODE_ENV);
     
     const body = await request.json();
     const { username, password } = body;
@@ -60,22 +63,27 @@ export async function POST(request: NextRequest) {
         const refreshTokenValue = cookieMatch[1];
         const isProduction = process.env.NODE_ENV === 'production';
         
-        console.log('[Login API Route] Setting cookie with options:', {
+        // Cookie settings phù hợp với cross-subdomain (api.acdm.site và ssps.acdm.site)
+        // sameSite: 'none' cho phép cookie được gửi cross-origin (cần khi FE và BE ở khác subdomain)
+        // secure: true bắt buộc khi sameSite: 'none'
+        // domain: '.acdm.site' để share cookie giữa các subdomain
+        const cookieOptions: any = {
           httpOnly: true,
-          secure: isProduction,
-          sameSite: isProduction ? 'strict' : 'lax',
-          maxAge: '7 days',
-          path: '/',
-        });
-        
-        // Set cookie with same options as backend
-        nextResponse.cookies.set('refreshToken', refreshTokenValue, {
-          httpOnly: true,
-          secure: isProduction,
-          sameSite: isProduction ? 'strict' : 'lax',
+          secure: isProduction, // Bắt buộc true khi sameSite: 'none'
+          sameSite: isProduction ? 'none' : 'lax', // 'none' cho cross-subdomain
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
           path: '/',
-        });
+        };
+        
+        // Set domain để share cookie giữa các subdomain trong production
+        if (isProduction) {
+          cookieOptions.domain = '.acdm.site'; // Share cookie giữa api.acdm.site và ssps.acdm.site
+        }
+        
+        console.log('[Login API Route] Setting cookie with options:', cookieOptions);
+        
+        // Set cookie với options phù hợp cho cross-subdomain
+        nextResponse.cookies.set('refreshToken', refreshTokenValue, cookieOptions);
         
         console.log('[Login API Route] ✅ Cookie set successfully');
       } else {
