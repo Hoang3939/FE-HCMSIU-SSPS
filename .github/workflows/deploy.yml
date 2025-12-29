@@ -94,6 +94,15 @@ jobs:
             echo "Đã xóa cache cũ"
           fi
 
+      - name: Upgrade Node.js to version 22
+        run: |
+          echo "Nâng cấp Node.js lên version 22..."
+          curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+          sudo apt install -y nodejs
+          echo "Node.js version sau khi nâng cấp:"
+          node --version
+          npm --version
+
       - name: Install Dependencies
         run: |
           echo "Cài đặt dependencies..."
@@ -135,63 +144,22 @@ jobs:
             exit 1
           fi
 
-      - name: Stop existing PM2 process (if running)
-        run: |
-          echo "Dừng PM2 process cũ (nếu có)..."
-          pm2 stop frontend-client 2>/dev/null || echo "Không có process nào đang chạy"
-          pm2 delete frontend-client 2>/dev/null || echo "Không có process nào để xóa"
-
       - name: Start/Restart Frontend with PM2
         run: |
           echo "Khởi động frontend với PM2..."
-          
-          # Đọc PORT từ .env hoặc dùng mặc định
-          env_file=""
-          if [ -f .env.local ]; then
-            env_file=".env.local"
-          elif [ -f .env.production ]; then
-            env_file=".env.production"
-          elif [ -f .env ]; then
-            env_file=".env"
-          fi
-          
-          port="3000"
-          if [ -n "$env_file" ]; then
-            port_line=$(grep "^PORT=" "$env_file" 2>/dev/null || echo "")
-            if [ -n "$port_line" ]; then
-              port=$(echo "$port_line" | cut -d '=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            fi
-          fi
-          
-          # Khởi động với PM2
-          pm2 start npm --name "frontend-client" -- start --update-env
+          # Xóa process cũ nếu có (không fail nếu không tồn tại)
+          pm2 delete frontend-client || true
+          # Khởi động Next.js với port 3000 qua flag -p
+          pm2 start npm --name "frontend-client" -- start -- -p 3000
           pm2 save
-          
-          echo "Frontend đã được khởi động trên port $port"
+          echo "Frontend đã được khởi động trên port 3000"
 
       - name: Wait for server to be ready
         run: |
           echo "Đợi server khởi động..."
           sleep 8
           
-          # Đọc PORT từ .env hoặc dùng mặc định
-          env_file=""
-          if [ -f .env.local ]; then
-            env_file=".env.local"
-          elif [ -f .env.production ]; then
-            env_file=".env.production"
-          elif [ -f .env ]; then
-            env_file=".env"
-          fi
-          
           port="3000"
-          if [ -n "$env_file" ]; then
-            port_line=$(grep "^PORT=" "$env_file" 2>/dev/null || echo "")
-            if [ -n "$port_line" ]; then
-              port=$(echo "$port_line" | cut -d '=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            fi
-          fi
-          
           max_attempts=30
           attempt=0
           
@@ -218,24 +186,7 @@ jobs:
         run: |
           echo "Kiểm tra frontend..."
           
-          # Đọc PORT từ .env hoặc dùng mặc định
-          env_file=""
-          if [ -f .env.local ]; then
-            env_file=".env.local"
-          elif [ -f .env.production ]; then
-            env_file=".env.production"
-          elif [ -f .env ]; then
-            env_file=".env"
-          fi
-          
           port="3000"
-          if [ -n "$env_file" ]; then
-            port_line=$(grep "^PORT=" "$env_file" 2>/dev/null || echo "")
-            if [ -n "$port_line" ]; then
-              port=$(echo "$port_line" | cut -d '=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            fi
-          fi
-          
           response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$port || echo "ERROR")
           
           if [ "$response" = "ERROR" ] || [ "$response" != "200" ]; then
@@ -258,7 +209,7 @@ jobs:
 
       - name: Deployment summary
         run: |
-          # Đọc PORT từ .env
+          # Đọc API URL từ .env
           env_file=""
           if [ -f .env.local ]; then
             env_file=".env.local"
@@ -266,14 +217,6 @@ jobs:
             env_file=".env.production"
           elif [ -f .env ]; then
             env_file=".env"
-          fi
-          
-          port="3000"
-          if [ -n "$env_file" ]; then
-            port_line=$(grep "^PORT=" "$env_file" 2>/dev/null || echo "")
-            if [ -n "$port_line" ]; then
-              port=$(echo "$port_line" | cut -d '=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            fi
           fi
           
           api_url=""
@@ -290,7 +233,7 @@ jobs:
           echo "═══════════════════════════════════════════════════════════"
           echo "Application: frontend-client"
           echo "Status: Running"
-          echo "Port: $port"
+          echo "Port: 3000"
           echo "API URL: ${api_url:-'http://localhost:3001'}"
           echo "Build: .next/"
           echo "Process Manager: PM2"
