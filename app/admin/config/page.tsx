@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -281,19 +280,18 @@ export default function SystemConfigPage() {
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#A7A3FF]" />
       </div>
     )
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header userRole={(user?.role?.toLowerCase() as "student" | "spso") || "spso"} userName={user?.username || "Admin"} />
-        <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-12">
+      <div className="min-h-screen bg-[#121212]">
+        <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            <Loader2 className="h-8 w-8 animate-spin text-[#A7A3FF]" />
           </div>
         </main>
       </div>
@@ -301,47 +299,45 @@ export default function SystemConfigPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header userRole={(user?.role?.toLowerCase() as "student" | "spso") || "spso"} userName={user?.username || "Admin"} />
-
-      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-12">
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Cấu hình hệ thống</h1>
-          <p className="mt-2 text-gray-600">Thiết lập các thông số hệ thống</p>
+    <div className="min-h-screen bg-[#121212]">
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-white mb-2">Cấu hình hệ thống</h1>
+          <p className="text-gray-400">Thiết lập các thông số hệ thống</p>
         </div>
 
         {error && (
-          <div className="mb-6 rounded-lg bg-red-50 p-4 text-red-800">
+          <div className="mb-6 rounded-lg bg-red-900/30 border border-red-900/50 p-4 text-red-400">
             {error}
           </div>
         )}
 
         {/* Default Pages Configuration */}
-        <Card className="mb-6">
+        <Card className="mb-6 bg-[#1a1a1a] border-[#2a2a2a]">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-indigo-600" />
+            <CardTitle className="flex items-center gap-2 text-white">
+              <FileText className="h-5 w-5 text-[#A7A3FF]" />
               Số trang mặc định mỗi học kỳ
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-400">
               Số trang A4 mặc định mà hệ thống sẽ cấp cho mỗi sinh viên vào đầu học kỳ
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="defaultPages">Số trang mặc định</Label>
+                <Label htmlFor="defaultPages" className="text-gray-300">Số trang mặc định</Label>
                 <div className="flex items-center gap-4">
                   <Input
                     id="defaultPages"
                     type="number"
                     value={defaultPages}
                     onChange={(e) => setDefaultPages(Number.parseInt(e.target.value) || 0)}
-                    className="w-32"
+                    className="w-28 bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
                     min="0"
                     max="1000"
                   />
-                  <span className="text-sm text-gray-600">trang A4</span>
+                  <span className="text-sm text-gray-400">trang A4</span>
                 </div>
               </div>
             </div>
@@ -349,13 +345,13 @@ export default function SystemConfigPage() {
         </Card>
 
         {/* Semester Dates Configuration */}
-        <Card className="mb-6">
+        <Card className="mb-6 bg-[#1a1a1a] border-[#2a2a2a]">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-indigo-600" />
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Calendar className="h-5 w-5 text-[#A7A3FF]" />
               Thời gian cấp phát trang in tự động
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-400">
               Đây là thời gian cấp phát trang in tự động cho sinh viên vào mỗi kỳ học.
             </CardDescription>
           </CardHeader>
@@ -363,7 +359,7 @@ export default function SystemConfigPage() {
             <div className="space-y-4">
               {/* Học kỳ 1 */}
               <div className="space-y-2">
-                <Label htmlFor="semester1Date">Học kỳ 1 (Học kỳ chính)</Label>
+                <Label htmlFor="semester1Date" className="text-gray-300">Học kỳ 1 (Học kỳ chính)</Label>
                 <Input
                   id="semester1Date"
                   type="date"
@@ -380,9 +376,10 @@ export default function SystemConfigPage() {
                       }
                     }, 100)
                   }}
+                  className="date-picker-dark bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
                 />
                 {semester1Date && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-400">
                     {format(new Date(semester1Date), "dd/MM/yyyy", { locale: vi })}
                   </p>
                 )}
@@ -390,7 +387,7 @@ export default function SystemConfigPage() {
 
               {/* Học kỳ 2 */}
               <div className="space-y-2">
-                <Label htmlFor="semester2Date">Học kỳ 2 (Học kỳ chính)</Label>
+                <Label htmlFor="semester2Date" className="text-gray-300">Học kỳ 2 (Học kỳ chính)</Label>
                 <Input
                   id="semester2Date"
                   type="date"
@@ -407,9 +404,10 @@ export default function SystemConfigPage() {
                       }
                     }, 100)
                   }}
+                  className="date-picker-dark bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
                 />
                 {semester2Date && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-400">
                     {format(new Date(semester2Date), "dd/MM/yyyy", { locale: vi })}
                   </p>
                 )}
@@ -417,7 +415,7 @@ export default function SystemConfigPage() {
 
               {/* Học kỳ phụ */}
               <div className="space-y-2">
-                <Label htmlFor="semester3Date">Học kỳ phụ</Label>
+                <Label htmlFor="semester3Date" className="text-gray-300">Học kỳ phụ</Label>
                 <Input
                   id="semester3Date"
                   type="date"
@@ -434,9 +432,10 @@ export default function SystemConfigPage() {
                       }
                     }, 100)
                   }}
+                  className="date-picker-dark bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
                 />
                 {semester3Date && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-400">
                     {format(new Date(semester3Date), "dd/MM/yyyy", { locale: vi })}
                   </p>
                 )}
@@ -444,8 +443,8 @@ export default function SystemConfigPage() {
 
               {/* Validation message */}
               {semester1Date && semester2Date && semester3Date && validateSemesterDates() && (
-                <div className="rounded-lg bg-yellow-50 p-3 border border-yellow-200">
-                  <p className="text-sm text-yellow-800">
+                <div className="rounded-lg bg-amber-900/30 border border-amber-900/50 p-3">
+                  <p className="text-sm text-amber-400">
                     ⚠️ {validateSemesterDates()}
                   </p>
                 </div>
@@ -454,74 +453,77 @@ export default function SystemConfigPage() {
           </CardContent>
         </Card>
 
-        {/* Max File Size Configuration */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5 text-indigo-600" />
-              Kích thước file tối đa
-            </CardTitle>
-            <CardDescription>
-              Giới hạn dung lượng file mà sinh viên được phép upload (MB)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Label htmlFor="maxFileSize">Kích thước tối đa (MB)</Label>
-              <div className="flex items-center gap-4">
-                <Input
-                  id="maxFileSize"
-                  type="number"
-                  value={maxFileSize}
-                  onChange={(e) => setMaxFileSize(Number.parseFloat(e.target.value) || 0)}
-                  className="w-32"
-                  min="1"
-                  max="100"
-                  step="0.1"
-                />
-                <span className="text-sm text-gray-600">MB</span>
+        {/* Max File Size and Price Per Page - Grid 2 columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Max File Size Configuration */}
+          <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Settings className="h-5 w-5 text-[#A7A3FF]" />
+                Kích thước file tối đa
+              </CardTitle>
+              <CardDescription className="text-gray-400">
+                Giới hạn dung lượng file mà sinh viên được phép upload (MB)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="maxFileSize" className="text-gray-300">Kích thước tối đa (MB)</Label>
+                <div className="flex items-center gap-4">
+                  <Input
+                    id="maxFileSize"
+                    type="number"
+                    value={maxFileSize}
+                    onChange={(e) => setMaxFileSize(Number.parseFloat(e.target.value) || 0)}
+                    className="w-28 bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
+                    min="1"
+                    max="100"
+                    step="0.1"
+                  />
+                  <span className="text-sm text-gray-400">MB</span>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Price Per Page Configuration */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5 text-indigo-600" />
-              Giá mỗi trang in
-            </CardTitle>
-            <CardDescription>
-              Số tiền (VNĐ) hoặc điểm quy đổi cho mỗi trang in bổ sung
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Label htmlFor="pricePerPage">Giá mỗi trang (VNĐ)</Label>
-              <div className="flex items-center gap-4">
-                <Input
-                  id="pricePerPage"
-                  type="number"
-                  value={pricePerPage}
-                  onChange={(e) => setPricePerPage(Number.parseInt(e.target.value) || 0)}
-                  className="w-32"
-                  min="0"
-                />
-                <span className="text-sm text-gray-600">VNĐ</span>
+          {/* Price Per Page Configuration */}
+          <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Settings className="h-5 w-5 text-[#A7A3FF]" />
+                Giá mỗi trang in
+              </CardTitle>
+              <CardDescription className="text-gray-400">
+                Số tiền (VNĐ) hoặc điểm quy đổi cho mỗi trang in bổ sung
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="pricePerPage" className="text-gray-300">Giá mỗi trang (VNĐ)</Label>
+                <div className="flex items-center gap-4">
+                  <Input
+                    id="pricePerPage"
+                    type="number"
+                    value={pricePerPage}
+                    onChange={(e) => setPricePerPage(Number.parseInt(e.target.value) || 0)}
+                    className="w-28 bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
+                    min="0"
+                  />
+                  <span className="text-sm text-gray-400">VNĐ</span>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Allowed File Types */}
-        <Card className="mb-6">
+        <Card className="mb-6 bg-[#1a1a1a] border-[#2a2a2a]">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5 text-indigo-600" />
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Settings className="h-5 w-5 text-[#A7A3FF]" />
               Loại tệp được phép
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-400">
               Chọn các loại tệp mà sinh viên được phép upload và in
             </CardDescription>
           </CardHeader>
@@ -535,8 +537,8 @@ export default function SystemConfigPage() {
                     onClick={() => toggleFileType(type)}
                     className={`flex items-center justify-center rounded-lg border-2 p-3 transition-colors ${
                       allowedFileTypes.includes(displayType)
-                        ? "border-indigo-600 bg-indigo-50 text-indigo-600"
-                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                        ? "border-[#4D47C3] bg-[#4D47C3]/20 text-[#A7A3FF] hover:bg-[#4D47C3]/30"
+                        : "border-[#3a3a3a] bg-[#2a2a2a] text-gray-400 hover:border-[#4a4a4a] hover:text-gray-300"
                     }`}
                   >
                     <span className="font-medium">{displayType.toUpperCase()}</span>
@@ -544,7 +546,7 @@ export default function SystemConfigPage() {
                 )
               })}
             </div>
-            <div className="mt-4 text-sm text-gray-600">
+            <div className="mt-4 text-sm text-gray-400">
               <p>Đã chọn: {allowedFileTypes.length} loại tệp</p>
             </div>
           </CardContent>
@@ -556,7 +558,7 @@ export default function SystemConfigPage() {
             variant="outline"
             onClick={handleResetPages}
             disabled={resetting}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 border-[#3a3a3a] bg-[#2a2a2a] text-white hover:bg-[#3a3a3a] hover:text-white"
           >
             {resetting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -568,7 +570,7 @@ export default function SystemConfigPage() {
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2"
+            className="bg-[#4D47C3] hover:bg-[#3d37a3] text-white flex items-center gap-2"
           >
             {saving ? (
               <>
