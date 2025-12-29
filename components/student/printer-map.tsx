@@ -1,15 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Printer } from "lucide-react"
+import { Printer, Navigation, X } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-// Temporarily disabled unused imports
-// import { Navigation, X } from "lucide-react"
-// import { Button } from "@/components/ui/button"
-// Temporarily disabled leaflet imports
-// import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet"
-// import { Icon, LatLng } from "leaflet"
-// import "leaflet/dist/leaflet.css"
+import { Button } from "@/components/ui/button"
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents } from "react-leaflet"
+import L from "leaflet"
+import { Icon, LatLng } from "leaflet"
+import "leaflet/dist/leaflet.css"
 import { mapAPI, type PrinterWithLocation } from "@/lib/api/map-api"
 
 interface PrinterMapProps {
@@ -17,91 +15,97 @@ interface PrinterMapProps {
   onPrinterSelect?: (printerId: string) => void
 }
 
-// Temporarily disabled default center
-// const defaultCenter: [number, number] = [10.762622, 106.660172]
+const defaultCenter: [number, number] = [10.762622, 106.660172] // Ho Chi Minh City
 
-// Temporarily disabled leaflet configuration
-// import L from "leaflet"
-// delete (L.Icon.Default.prototype as any)._getIconUrl
-// L.Icon.Default.mergeOptions({
-//   iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-//   iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-//   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-// })
+// Fix for default marker icon in Next.js
+if (typeof window !== "undefined") {
+  delete (L.Icon.Default.prototype as any)._getIconUrl
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+    iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+  })
+}
 
-// Custom marker colors - temporarily disabled
-// const createCustomIcon = (color: string, isSelected: boolean = false) => {
-//   return new Icon({
-//     iconUrl: `data:image/svg+xml;base64,${btoa(`
-//       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-//         <circle cx="12" cy="12" r="10" fill="${color}" stroke="${isSelected ? '#3b82f6' : '#ffffff'}" stroke-width="${isSelected ? '3' : '2'}"/>
-//       </svg>
-//     `)}`,
-//     iconSize: [24, 24],
-//     iconAnchor: [12, 12],
-//   })
-// }
+// Custom marker with label (same as admin map)
+const createCustomIcon = (color: string, label: string, isSelected: boolean = false) => {
+  return new L.DivIcon({
+    html: `
+      <div style="position: relative; text-align: center;">
+        <div style="
+          position: absolute;
+          bottom: 28px;
+          left: 50%;
+          transform: translateX(-50%);
+          white-space: nowrap;
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 600;
+          pointer-events: none;
+          z-index: 1000;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        ">${label}</div>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" fill="${color}" stroke="${isSelected ? '#3b82f6' : '#ffffff'}" stroke-width="${isSelected ? '3' : '2'}"/>
+        </svg>
+      </div>
+    `,
+    className: 'custom-marker-icon',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  })
+}
 
-// const createUserIcon = () => {
-//   return new Icon({
-//     iconUrl: `data:image/svg+xml;base64,${btoa(`
-//       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-//         <circle cx="12" cy="12" r="10" fill="#3b82f6" stroke="#ffffff" stroke-width="2"/>
-//       </svg>
-//     `)}`,
-//     iconSize: [24, 24],
-//     iconAnchor: [12, 12],
-//   })
-// }
+const createUserIcon = () => {
+  return new Icon({
+    iconUrl: `data:image/svg+xml;base64,${btoa(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="#3b82f6" stroke="#ffffff" stroke-width="2"/>
+      </svg>
+    `)}`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  })
+}
 
-// function MapCenter({ center }: { center: [number, number] }) {
-//   const map = useMap()
-//   useEffect(() => {
-//     map.setView(center, map.getZoom())
-//   }, [center, map])
-//   return null
-// }
+function MapCenter({ center }: { center: [number, number] }) {
+  const map = useMap()
+  useEffect(() => {
+    map.setView(center, map.getZoom())
+  }, [center, map])
+  return null
+}
 
-// const createUserIcon = () => {
-//   return new Icon({
-//     iconUrl: `data:image/svg+xml;base64,${btoa(`
-//       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-//         <circle cx="12" cy="12" r="10" fill="#3b82f6" stroke="#ffffff" stroke-width="2"/>
-//       </svg>
-//     `)}`,
-//     iconSize: [24, 24],
-//     iconAnchor: [12, 12],
-//   })
-// }
-
-// function MapCenter({ center }: { center: [number, number] }) {
-//   const map = useMap()
-//   useEffect(() => {
-//     map.setView(center, map.getZoom())
-//   }, [center, map])
-//   return null
-// }
+function MapRightClickHandler({ onRightClick }: { onRightClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    contextmenu: (e) => {
+      onRightClick(e.latlng.lat, e.latlng.lng)
+    },
+  })
+  return null
+}
 
 export function PrinterMap({ selectedPrinterId, onPrinterSelect }: PrinterMapProps) {
   const [printers, setPrinters] = useState<PrinterWithLocation[]>([])
   const [loading, setLoading] = useState(true)
-  // Temporarily disabled user position and map center
-  // const [userPosition, setUserPosition] = useState<[number, number] | null>(null)
-  // const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter)
+  const [userPosition, setUserPosition] = useState<[number, number] | null>(null)
+  const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter)
 
   useEffect(() => {
     loadPrinters()
   }, [])
 
-  // Temporarily disabled map center update
-  // useEffect(() => {
-  //   if (selectedPrinterId) {
-  //     const printer = printers.find(p => p.PrinterID === selectedPrinterId)
-  //     if (printer && printer.X !== null && printer.Y !== null) {
-  //       setMapCenter([printer.X, printer.Y])
-  //     }
-  //   }
-  // }, [selectedPrinterId, printers])
+  useEffect(() => {
+    if (selectedPrinterId) {
+      const printer = printers.find(p => p.PrinterID === selectedPrinterId)
+      if (printer && printer.X !== null && printer.Y !== null) {
+        setMapCenter([printer.X, printer.Y])
+      }
+    }
+  }, [selectedPrinterId, printers])
 
   const loadPrinters = async () => {
     try {
@@ -110,10 +114,9 @@ export function PrinterMap({ selectedPrinterId, onPrinterSelect }: PrinterMapPro
       const printersWithLocation = data.filter(p => p.X !== null && p.Y !== null)
       setPrinters(printersWithLocation)
       
-      // Temporarily disabled map center update
-      // if (data.length > 0 && data[0].X !== null && data[0].Y !== null) {
-      //   setMapCenter([data[0].X, data[0].Y])
-      // }
+      if (data.length > 0 && data[0].X !== null && data[0].Y !== null) {
+        setMapCenter([data[0].X, data[0].Y])
+      }
     } catch (error) {
       console.error("Error loading printers:", error)
     } finally {
@@ -121,30 +124,26 @@ export function PrinterMap({ selectedPrinterId, onPrinterSelect }: PrinterMapPro
     }
   }
 
-  // Temporarily disabled map handlers
-  // const handleMapRightClick = (e: any) => {
-  //   const lat = e.latlng.lat
-  //   const lng = e.latlng.lng
-  //   setUserPosition([lat, lng])
-  // }
+  const handleMapRightClick = (lat: number, lng: number) => {
+    setUserPosition([lat, lng])
+  }
 
-  // const getMarkerColor = (status: string) => {
-  //   switch (status) {
-  //     case "AVAILABLE":
-  //       return "#22c55e"
-  //     case "BUSY":
-  //       return "#eab308"
-  //     default:
-  //       return "#6b7280"
-  //   }
-  // }
+  const getMarkerColor = (status: string) => {
+    switch (status) {
+      case "AVAILABLE":
+        return "#22c55e"
+      case "BUSY":
+        return "#eab308"
+      default:
+        return "#6b7280"
+    }
+  }
 
   const selectedPrinter = printers.find(p => p.PrinterID === selectedPrinterId)
-  // Temporarily disabled route path calculation
-  // const routePath: [number, number][] | null = 
-  //   userPosition && selectedPrinter && selectedPrinter.X !== null && selectedPrinter.Y !== null
-  //     ? [userPosition, [selectedPrinter.X, selectedPrinter.Y]]
-  //     : null
+  const routePath: [number, number][] | null = 
+    userPosition && selectedPrinter && selectedPrinter.X !== null && selectedPrinter.Y !== null
+      ? [userPosition, [selectedPrinter.X, selectedPrinter.Y]]
+      : null
 
   return (
     <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
@@ -155,16 +154,6 @@ export function PrinterMap({ selectedPrinterId, onPrinterSelect }: PrinterMapPro
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Temporarily disabled map - leaflet not installed */}
-        <div className="border border-[#2a2a2a] rounded-lg overflow-hidden">
-          <div style={{ height: '600px', width: '100%' }} className="flex items-center justify-center bg-[#0f0f0f]">
-            <div className="text-center text-gray-400">
-              <p className="text-lg mb-2">Bản đồ tạm thời không khả dụng</p>
-              <p className="text-sm">Leaflet chưa được cài đặt</p>
-            </div>
-          </div>
-        </div>
-        {/* Temporarily disabled map components
         <div className="border border-[#2a2a2a] rounded-lg overflow-hidden">
           <div style={{ height: '600px', width: '100%' }}>
             <MapContainer
@@ -174,13 +163,14 @@ export function PrinterMap({ selectedPrinterId, onPrinterSelect }: PrinterMapPro
               className="z-0"
             >
               <MapCenter center={mapCenter} />
+              <MapRightClickHandler onRightClick={handleMapRightClick} />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
 
               {/* User position marker */}
-              {/* {userPosition && (
+              {userPosition && (
                 <Marker
                   position={userPosition}
                   icon={createUserIcon()}
@@ -191,10 +181,10 @@ export function PrinterMap({ selectedPrinterId, onPrinterSelect }: PrinterMapPro
                     </div>
                   </Popup>
                 </Marker>
-              )} */}
+              )}
 
               {/* Route line */}
-              {/* {routePath && (
+              {routePath && (
                 <Polyline
                   positions={routePath}
                   color="#22c55e"
@@ -202,10 +192,10 @@ export function PrinterMap({ selectedPrinterId, onPrinterSelect }: PrinterMapPro
                   opacity={0.7}
                   dashArray="10, 5"
                 />
-              )} */}
+              )}
 
               {/* Printer markers */}
-              {/* {printers.map((printer) => {
+              {printers.map((printer) => {
                 if (printer.X === null || printer.Y === null) return null
 
                 const position: [number, number] = [printer.X, printer.Y]
@@ -244,13 +234,13 @@ export function PrinterMap({ selectedPrinterId, onPrinterSelect }: PrinterMapPro
                     </Popup>
                   </Marker>
                 )
-              })} */}
-            {/* </MapContainer>
+              })}
+            </MapContainer>
           </div>
-        </div> */}
+        </div>
 
-        {/* Temporarily disabled route directions */}
-        {/* {selectedPrinter && userPosition && (
+        {/* Route directions */}
+        {selectedPrinter && userPosition && (
           <div className="p-4 bg-[#2a2a2a] rounded-lg">
             <div className="flex items-start gap-3">
               <Navigation className="h-5 w-5 text-blue-400 mt-0.5" />
@@ -287,7 +277,7 @@ export function PrinterMap({ selectedPrinterId, onPrinterSelect }: PrinterMapPro
               </Button>
             </div>
           </div>
-        )} */}
+        )}
 
         {loading ? (
           <div className="text-center text-gray-400 py-4">Đang tải...</div>
@@ -302,10 +292,9 @@ export function PrinterMap({ selectedPrinterId, onPrinterSelect }: PrinterMapPro
                 key={printer.PrinterID}
                 onClick={() => {
                   onPrinterSelect?.(printer.PrinterID)
-                  // Temporarily disabled map center update
-                  // if (printer.X !== null && printer.Y !== null) {
-                  //   setMapCenter([printer.X, printer.Y])
-                  // }
+                  if (printer.X !== null && printer.Y !== null) {
+                    setMapCenter([printer.X, printer.Y])
+                  }
                 }}
                 className={`p-3 rounded-lg border transition-colors text-left ${
                   selectedPrinterId === printer.PrinterID
