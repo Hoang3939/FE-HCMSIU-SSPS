@@ -57,3 +57,12 @@ export interface ApiError {
   statusCode?: number;
 }
 
+/**
+ * Printer API Error Response Interface
+ * Đồng bộ với cấu trúc error response từ Backend Printer API
+ */
+export interface PrinterApiErrorResponse {
+  code: 'DUPLICATE_NAME' | 'DUPLICATE_IP' | string;
+  message: string;
+}
+

@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Printer, Plus, Edit, Trash2, Loader2, AlertCircle, Map, X, Eye } from "lucide-react"
+import { Printer, Plus, Edit, Trash2, Loader2, AlertCircle, Map, X, Eye, Search, Filter } from "lucide-react"
 import { printerAPI, type Printer as PrinterType } from "@/lib/api/printer-api"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -80,6 +80,9 @@ export default function PrinterManagementPage() {
     Name?: string
     IPAddress?: string
   }>({})
+  const [searchQuery, setSearchQuery] = useState<string>("")
+  const [statusFilter, setStatusFilter] = useState<string>("")
+  const [isFiltered, setIsFiltered] = useState<boolean>(false)
   const [formData, setFormData] = useState<PrinterFormData>({
     Name: "",
     Brand: "",
@@ -97,11 +100,18 @@ export default function PrinterManagementPage() {
     loadPrinters()
   }, [])
 
-  const loadPrinters = async () => {
+  const loadPrinters = async (search?: string, status?: string) => {
     try {
       setLoading(true)
       setError(null)
-      const response = await printerAPI.getPrinters({ limit: 100 })
+      const params: any = { limit: 100 }
+      if (search && search.trim()) {
+        params.search = search.trim()
+      }
+      if (status && status.trim()) {
+        params.status = status.trim()
+      }
+      const response = await printerAPI.getPrinters(params)
       setPrinters(response.data)
     } catch (err: any) {
       console.error("Error loading printers:", err)
@@ -114,6 +124,22 @@ export default function PrinterManagementPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleFilter = () => {
+    if (!isFiltered) {
+      // Apply filter
+      loadPrinters(searchQuery, statusFilter)
+      setIsFiltered(true)
+    } else {
+      // Clear filter - reset all filter states
+      // Reset status filter first to ensure UI updates
+      setStatusFilter("")
+      setSearchQuery("")
+      setIsFiltered(false)
+      // Reload printers without filters
+      loadPrinters()
     }
   }
 
@@ -195,8 +221,8 @@ export default function PrinterManagementPage() {
         const updated = await printerAPI.updatePrinter(editingPrinter.PrinterID, updatePayload)
         console.log('[Frontend] handleSavePrinter: Update successful', updated)
         
-        // Refresh the list to get the latest data
-        await loadPrinters()
+        // Refresh the list to get the latest data (keep current filters if any)
+        await loadPrinters(isFiltered ? searchQuery : undefined, isFiltered ? statusFilter : undefined)
         setFormErrors({})
         
         // Show success toast immediately after successful update
@@ -227,8 +253,8 @@ export default function PrinterManagementPage() {
         const created = await printerAPI.createPrinter(createPayload)
         console.log('[Frontend] handleSavePrinter: Create successful', created)
         
-        // Refresh the list to show the new printer
-        await loadPrinters()
+        // Refresh the list to show the new printer (keep current filters if any)
+        await loadPrinters(isFiltered ? searchQuery : undefined, isFiltered ? statusFilter : undefined)
         console.log('[Frontend] handleSavePrinter: List refreshed, showing success toast and closing modal')
         setFormErrors({})
         
@@ -358,8 +384,8 @@ export default function PrinterManagementPage() {
       // 1. Call API
       await printerAPI.deletePrinter(printerToDelete.PrinterID)
       
-      // 2. IMPORTANT: Refresh the list immediately
-      await loadPrinters()
+      // 2. IMPORTANT: Refresh the list immediately (keep current filters if any)
+      await loadPrinters(isFiltered ? searchQuery : undefined, isFiltered ? statusFilter : undefined)
       
       // 3. Show Success Toast
       toast.success("Đã xóa máy in thành công!")
@@ -418,7 +444,7 @@ export default function PrinterManagementPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-6 bg-[#1a1a1a] border-[#2a2a2a] w-full">
+        <TabsList className="mb-6 bg-[#1a1a1a] border-[#2a2a2a] w-full gap-0">
           <TabsTrigger 
             value="list" 
             className="data-[state=active]:bg-[#3a3a3a] data-[state=active]:text-white data-[state=active]:border-[#4a4a4a] text-gray-400 border border-transparent px-6 py-2.5 text-base flex-1"
@@ -443,6 +469,73 @@ export default function PrinterManagementPage() {
         </TabsContent>
 
         <TabsContent value="list">
+          {/* Search and Filter Toolbar */}
+          <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white mb-4">
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4 items-center">
+                {/* Search Input */}
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Tìm kiếm theo tên, IP, hãng..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !isFiltered) {
+                          handleFilter()
+                        }
+                      }}
+                      className="pl-10 h-9 bg-[#2a2a2a] border-[#3a3a3a] text-white placeholder:text-gray-500 focus-visible:ring-[#4a4a4a]"
+                    />
+                  </div>
+                </div>
+
+                {/* Status Select */}
+                <div className="w-full sm:w-[200px]">
+                  <Select
+                    key={isFiltered ? 'filtered' : 'unfiltered'}
+                    value={statusFilter || undefined}
+                    onValueChange={(value) => setStatusFilter(value)}
+                  >
+                    <SelectTrigger className="h-9 bg-[#2a2a2a] border-[#3a3a3a] text-white focus:ring-[#4a4a4a]">
+                      <SelectValue placeholder="Tất cả trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#2a2a2a] border-[#3a3a3a] text-white">
+                      <SelectItem value="AVAILABLE">Sẵn sàng</SelectItem>
+                      <SelectItem value="BUSY">Đang bận</SelectItem>
+                      <SelectItem value="MAINTENANCE">Bảo trì</SelectItem>
+                      <SelectItem value="OFFLINE">Tạm dừng</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Filter/Reset Button */}
+                <Button
+                  onClick={handleFilter}
+                  variant={isFiltered ? "destructive" : "default"}
+                  className={`h-9 ${
+                    isFiltered 
+                      ? "bg-red-900/30 hover:bg-red-900/50 text-red-400 border-red-900/50" 
+                      : "bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white border-[#3a3a3a]"
+                  }`}
+                >
+                  {isFiltered ? (
+                    <>
+                      <X className="mr-2 h-4 w-4" />
+                      Xóa bộ lọc
+                    </>
+                  ) : (
+                    <>
+                      <Filter className="mr-2 h-4 w-4" />
+                      Lọc
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="bg-[#1a1a1a] border-[#2a2a2a] text-white mb-6">
             <CardHeader>
               <div className="flex items-center justify-between">
