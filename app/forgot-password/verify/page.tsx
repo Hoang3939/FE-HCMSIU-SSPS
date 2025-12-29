@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,7 @@ import { Loader2, ArrowLeft, KeyRound } from "lucide-react"
 import { authAPI } from "@/lib/api/auth-api"
 import { toast } from "sonner"
 
-export default function VerifyOTPPage() {
+function VerifyOTPForm() {
   const [otpCode, setOtpCode] = useState(["", "", "", "", "", ""])
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
@@ -192,6 +192,21 @@ export default function VerifyOTPPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function VerifyOTPPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Đang tải...</p>
+        </div>
+      </div>
+    }>
+      <VerifyOTPForm />
+    </Suspense>
   )
 }
 
