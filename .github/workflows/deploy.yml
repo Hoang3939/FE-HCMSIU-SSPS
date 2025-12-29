@@ -37,19 +37,20 @@ jobs:
             echo "File .env không tồn tại - cần tạo từ secrets"
           fi
 
-      - name: Create .env.local from secrets (if not exists)
-        if: steps.check-env.outputs.exists == 'false'
+      - name: Create/Update .env.local from secrets
         run: |
-          echo "Tạo file .env.local từ GitHub Secrets..."
+          echo "Tạo/cập nhật file .env.local từ GitHub Secrets..."
+          # Luôn tạo lại file .env.local để đảm bảo có giá trị mới nhất từ secrets
           cat > .env.local << EOF
           # Next.js Public Environment Variables
           # Các biến NEXT_PUBLIC_* sẽ được expose ra client-side
           NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001' }}
 
           # Server-side Environment Variables (không expose ra client)
-          # Có thể thêm các biến server-side khác ở đây nếu cần
+          PORT=3000
           EOF
-          echo "File .env.local đã được tạo từ secrets"
+          echo "File .env.local đã được tạo/cập nhật từ secrets"
+          echo "NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001' }}"
 
       - name: Verify required environment variables
         run: |
@@ -142,8 +143,9 @@ jobs:
         run: |
           echo "Khởi động/restart frontend với PM2..."
           # Dùng restart để giữ nguyên ID và cấu hình, chỉ cập nhật code mới
+          # Next.js nhận PORT qua biến môi trường, không qua flag -p
           # Nếu process chưa tồn tại thì start mới
-          pm2 restart frontend-client --update-env || pm2 start npm --name "frontend-client" -- start -- -p 3000
+          PORT=3000 pm2 restart frontend-client --update-env || PORT=3000 pm2 start npm --name "frontend-client" -- start
           pm2 save
           echo "Frontend đã được khởi động/restart trên port 3000"
 
