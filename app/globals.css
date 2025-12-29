@@ -151,6 +151,13 @@ input[type="date"].date-picker-dark::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 
+/* Recharts Pie Chart Labels - Dark Mode */
+.recharts-pie-label-text {
+  fill: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
 input[type="date"].date-picker-dark::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
