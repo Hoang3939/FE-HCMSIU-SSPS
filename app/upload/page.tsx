@@ -367,6 +367,11 @@ export default function UploadPage() {
                         <div className="text-sm text-gray-500">
                           {(file.size / 1024 / 1024).toFixed(2)} MB
                           {uploaded && ` • ${uploaded.pageCount} trang`}
+                          {fileErrors[index] && fileErrors[index].includes('quá lớn') && (
+                            <span className="ml-2 text-red-600">
+                              (Thực tế: {(file.size / 1024 / 1024).toFixed(2)} MB)
+                            </span>
+                          )}
                         </div>
                         {fileErrors[index] && (
                           <div className="mt-1 flex items-center gap-1 text-sm text-red-600">
