@@ -273,8 +273,8 @@ function LoginForm() {
                   variant="outline"
                   className="h-12 w-full bg-white border border-[#D6BCFA] text-[#4D47C3] hover:bg-[#F0EFFF] hover:border-[#4D47C3] rounded-lg transition-all duration-300"
                   onClick={() => {
-                    // Simulate SSO redirect
-                    window.location.href = "#"
+                    // Tạm thời hiển thị trang placeholder cho HCMSIU SSO
+                    router.push("/login/sso")
                   }}
                 >
                   Đăng nhập bằng HCMSIU SSO
