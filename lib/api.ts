@@ -305,21 +305,13 @@ export async function createPayment(data: {
   qrUrl: string;
 }> {
   try {
-    // Get student ID from auth store (user info) or localStorage fallback
-    const studentId = getStudentId();
-    if (!studentId) {
-      throw new Error('Thiếu Student ID. Vui lòng đăng nhập lại.');
-    }
-
     // Use apiClient which handles token refresh and network errors properly
+    // Backend will get studentId from JWT token (req.auth.userID)
+    // No need to send x-student-id header anymore
     const response = await apiClient.post<ApiResponse<{
       transId: string;
       qrUrl: string;
-    }>>('/payment/create', data, {
-      headers: {
-        'x-student-id': studentId,
-      },
-    });
+    }>>('/payment/create', data);
 
     if (response.data.success && response.data.data) {
       return response.data.data;
