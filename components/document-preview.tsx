@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { API_BASE_URL } from "@/lib/api-config"
 
 // Dynamic import PDF.js to avoid SSR issues
 let pdfjsLib: any = null
@@ -46,7 +47,6 @@ export function DocumentPreview({
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const previewUrl = `/api/documents/${documentId}/preview`
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
   // Parse page range to get list of pages to display
   const getPagesToDisplay = (): number[] => {
@@ -116,7 +116,7 @@ export function DocumentPreview({
 
         const studentId = localStorage.getItem('student-id') || '87338eec-dd46-49ae-a59a-f3d61cc16915'
         
-        const response = await fetch(`${apiBaseUrl}${previewUrl}`, {
+        const response = await fetch(`${API_BASE_URL}${previewUrl}`, {
           headers: {
             'x-student-id': studentId,
           },
@@ -296,7 +296,7 @@ export function DocumentPreview({
       setRenderedPages(new Map())
       setError(null)
     }
-  }, [documentId, previewUrl, apiBaseUrl])
+  }, [documentId, previewUrl])
 
   // Calculate grid layout for pages per sheet
   const getGridLayout = (pagesPerSheet: number) => {
