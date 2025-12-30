@@ -1,14 +1,21 @@
 // Import apiClient for authenticated requests
 import apiClient from './api/apiClient';
 import type { ApiResponse } from './types/api.types';
+import { useAuthStore } from './stores/auth-store';
+import { API_BASE_URL } from './api-config';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-// Get student ID from localStorage (demo mode - không dùng login)
+// Get student ID from auth store (preferred) or localStorage (fallback)
 function getStudentId(): string | null {
   if (typeof window === 'undefined') return null;
-  // Lấy từ localStorage hoặc dùng default cho demo
-  return localStorage.getItem('student-id') || '87338eec-dd46-49ae-a59a-f3d61cc16915'; // student001 default
+  
+  // Try to get from auth store first (if user is logged in)
+  const user = useAuthStore.getState().user;
+  if (user?.userID) {
+    return user.userID;
+  }
+  
+  // Fallback to localStorage (for demo/legacy support)
+  return localStorage.getItem('student-id') || null;
 }
 
 // API request helper
@@ -297,22 +304,42 @@ export async function createPayment(data: {
   transId: string;
   qrUrl: string;
 }> {
-  const response = await apiRequest<{
-    success: boolean;
-    data: {
+  try {
+    // Get student ID from auth store (user info) or localStorage fallback
+    const studentId = getStudentId();
+    if (!studentId) {
+      throw new Error('Thiếu Student ID. Vui lòng đăng nhập lại.');
+    }
+
+    // Use apiClient which handles token refresh and network errors properly
+    const response = await apiClient.post<ApiResponse<{
       transId: string;
       qrUrl: string;
-    };
-  }>('/api/payment/create', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+    }>>('/payment/create', data, {
+      headers: {
+        'x-student-id': studentId,
+      },
+    });
 
-  if (response.success && response.data) {
-    return response.data;
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Unexpected response format from server');
+  } catch (error: any) {
+    // Handle network errors with better error messages
+    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      throw new Error(
+        `Không thể kết nối đến server. Vui lòng kiểm tra:\n` +
+        `1. Backend có đang chạy tại ${API_BASE_URL} không?\n` +
+        `2. CORS đã được cấu hình đúng chưa?\n` +
+        `3. Kiểm tra console backend để xem có lỗi gì không.`
+      );
+    }
+    
+    // Re-throw other errors
+    throw error;
   }
-
-  throw new Error('Unexpected response format from server');
 }
 
 // Check payment status
@@ -320,20 +347,31 @@ export async function checkPaymentStatus(transId: string): Promise<{
   status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
   pages: number;
 }> {
-  const response = await apiRequest<{
-    success: boolean;
-    data: {
+  try {
+    // Use apiClient which handles token refresh and network errors properly
+    const response = await apiClient.get<ApiResponse<{
       status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
       pages: number;
-    };
-  }>(`/api/payment/status/${transId}`, {
-    method: 'GET',
-  });
+    }>>(`/payment/status/${transId}`);
 
-  if (response.success && response.data) {
-    return response.data;
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Unexpected response format from server');
+  } catch (error: any) {
+    // Handle network errors with better error messages
+    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      throw new Error(
+        `Không thể kết nối đến server. Vui lòng kiểm tra:\n` +
+        `1. Backend có đang chạy tại ${API_BASE_URL} không?\n` +
+        `2. CORS đã được cấu hình đúng chưa?\n` +
+        `3. Kiểm tra console backend để xem có lỗi gì không.`
+      );
+    }
+    
+    // Re-throw other errors
+    throw error;
   }
-
-  throw new Error('Unexpected response format from server');
 }
 
