@@ -1,11 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { getUserBalance } from "@/lib/api"
+import { getUploadLimits } from "@/lib/api/admin-api"
 import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileText, Sparkles } from "lucide-react"
+import { PaymentDialog } from "@/components/payment-dialog"
+import { toast } from "sonner"
 
 interface PricingTier {
   pages: number
@@ -17,32 +20,88 @@ interface PricingTier {
 export default function BuyPagesPage() {
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null)
   const [currentBalance, setCurrentBalance] = useState(0)
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [pricePerPage, setPricePerPage] = useState<number>(500) // Default fallback
 
-  const pricingTiers: PricingTier[] = [
-    { pages: 10, price: 5000, pricePerPage: 500 },
-    { pages: 50, price: 20000, pricePerPage: 400, popular: true },
-    { pages: 100, price: 35000, pricePerPage: 350 },
-    { pages: 200, price: 60000, pricePerPage: 300 },
-  ]
+  // Tính toán giá các gói tự động dựa trên price_per_page
+  // Logic giảm giá:
+  // - 10 trang: 100% giá gốc (không giảm)
+  // - 50 trang: 90% giá gốc (giảm 10%)
+  // - 100 trang: 85% giá gốc (giảm 15%)
+  // - 200 trang: 80% giá gốc (giảm 20%)
+  const pricingTiers: PricingTier[] = useMemo(() => {
+    const basePrice = pricePerPage
+    const discountRates = {
+      10: 1.0,   // 100% - không giảm
+      50: 0.9,   // 90% - giảm 10%
+      100: 0.85, // 85% - giảm 15%
+      200: 0.8,  // 80% - giảm 20%
+    }
+
+    return [
+      {
+        pages: 10,
+        price: Math.round(10 * basePrice * discountRates[10]),
+        pricePerPage: Math.round(basePrice * discountRates[10]),
+      },
+      {
+        pages: 50,
+        price: Math.round(50 * basePrice * discountRates[50]),
+        pricePerPage: Math.round(basePrice * discountRates[50]),
+        popular: true,
+      },
+      {
+        pages: 100,
+        price: Math.round(100 * basePrice * discountRates[100]),
+        pricePerPage: Math.round(basePrice * discountRates[100]),
+      },
+      {
+        pages: 200,
+        price: Math.round(200 * basePrice * discountRates[200]),
+        pricePerPage: Math.round(basePrice * discountRates[200]),
+      },
+    ]
+  }, [pricePerPage])
 
   useEffect(() => {
-    const loadBalance = async () => {
+    const loadData = async () => {
       try {
         const balanceData = await getUserBalance()
         setCurrentBalance(balanceData.balancePages)
       } catch (error) {
         console.error('Error loading balance:', error)
       }
+
+      try {
+        const limits = await getUploadLimits()
+        setPricePerPage(limits.price_per_page)
+      } catch (error) {
+        console.error('Error loading price per page:', error)
+        // Fallback to default if can't load config
+        setPricePerPage(500)
+      }
     }
-    loadBalance()
+    loadData()
   }, [])
+
+  const handlePaymentSuccess = async (pages: number) => {
+    // Update balance after successful payment
+    // Backend đã cộng trang vào database rồi, chỉ cần reload balance từ API
+    try {
+      const balanceData = await getUserBalance()
+      setCurrentBalance(balanceData.balancePages) // Không cộng thêm vì backend đã cộng rồi
+      toast.success(`Đã cộng ${pages} trang vào tài khoản!`)
+    } catch (error) {
+      console.error('Error updating balance:', error)
+      // Fallback: cộng vào state nếu không load được từ API
+      setCurrentBalance((prev) => prev + pages)
+      toast.success(`Đã cộng ${pages} trang vào tài khoản!`)
+    }
+  }
 
   const handlePayment = () => {
     if (selectedTier) {
-      // In real app, this would redirect to SIUPay payment gateway
-      console.log("Redirecting to SIUPay for:", selectedTier)
-      // Simulate payment redirect
-      alert(`Chuyển hướng đến SIUPay để thanh toán ${selectedTier.price.toLocaleString()} ₫`)
+      setPaymentDialogOpen(true)
     }
   }
 
@@ -81,8 +140,8 @@ export default function BuyPagesPage() {
 
               <div className="mb-4 text-4xl font-bold text-indigo-600 sm:text-5xl">{tier.pages}</div>
               <div className="mb-2 text-sm text-gray-600">Trang in</div>
-              <div className="mb-1 text-2xl font-bold sm:text-3xl">{tier.price.toLocaleString()} ₫</div>
-              <div className="text-sm text-gray-500">{tier.pricePerPage} ₫/trang</div>
+              <div className="mb-1 text-2xl font-bold sm:text-3xl">{tier.price.toLocaleString('vi-VN')} ₫</div>
+              <div className="text-sm text-gray-500">{tier.pricePerPage.toLocaleString('vi-VN')} ₫/trang</div>
             </button>
           ))}
         </div>
@@ -109,7 +168,7 @@ export default function BuyPagesPage() {
               <div className="flex justify-between border-t pt-4">
                 <span className="font-semibold">Tổng thanh toán:</span>
                 <span className="text-2xl font-bold text-indigo-600">
-                  {selectedTier.price.toLocaleString()} ₫
+                  {selectedTier.price.toLocaleString('vi-VN')} ₫
                 </span>
               </div>
               <Button
@@ -122,6 +181,14 @@ export default function BuyPagesPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Payment Dialog */}
+        <PaymentDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          selectedTier={selectedTier}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
 
         {/* Info Section */}
         <Card className="mt-8">

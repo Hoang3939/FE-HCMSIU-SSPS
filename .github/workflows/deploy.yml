@@ -1,0 +1,254 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: ["develop"]
+
+jobs:
+  build-and-deploy:
+    runs-on: [self-hosted, frontend]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Verify Node.js and npm versions
+        run: |
+          node --version
+          npm --version
+          echo ""
+          echo "LƯU Ý: Nếu cần nâng cấp Node.js lên version 22, hãy chạy lệnh sau một lần duy nhất trên terminal của server:"
+          echo "   curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs"
+
+      - name: Check for .env file
+        id: check-env
+        run: |
+          if [ -f .env ] || [ -f .env.local ] || [ -f .env.production ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "File .env đã tồn tại"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "File .env không tồn tại - cần tạo từ secrets"
+          fi
+
+      - name: Create/Update .env.local from secrets
+        run: |
+          echo "Tạo/cập nhật file .env.local từ GitHub Secrets..."
+          # Luôn tạo lại file .env.local để đảm bảo có giá trị mới nhất từ secrets
+          # LƯU Ý: Khi sử dụng Cloudflare Tunnel:
+          # - Frontend: https://ssps.acdm.site -> tunnel -> localhost:3000
+          # - Backend: https://api.acdm.site -> tunnel -> localhost:3001
+          # NEXT_PUBLIC_API_BASE_URL phải là URL public qua Cloudflare Tunnel (https://api.acdm.site)
+          # KHÔNG dùng localhost vì browser sẽ chặn CORS khi FE và BE ở khác origin
+          cat > .env.local << EOF
+          # Next.js Public Environment Variables
+          # Các biến NEXT_PUBLIC_* sẽ được expose ra client-side
+          # QUAN TRỌNG: Phải dùng URL public qua Cloudflare Tunnel, không dùng localhost
+          NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'https://api.acdm.site' }}
+
+          # Server-side Environment Variables (không expose ra client)
+          PORT=3000
+          NODE_ENV=production
+          EOF
+          echo "File .env.local đã được tạo/cập nhật từ secrets"
+          echo "NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'https://api.acdm.site' }}"
+          echo "⚠️  LƯU Ý: NEXT_PUBLIC_API_BASE_URL phải là URL public qua Cloudflare Tunnel (ví dụ: https://api.acdm.site)"
+          echo "⚠️  KHÔNG dùng localhost vì browser sẽ chặn CORS khi FE và BE ở khác origin"
+
+      - name: Verify required environment variables
+        run: |
+          echo "Kiểm tra các biến môi trường bắt buộc..."
+          
+          # Kiểm tra file .env.local hoặc .env.production
+          env_file=""
+          if [ -f .env.local ]; then
+            env_file=".env.local"
+          elif [ -f .env.production ]; then
+            env_file=".env.production"
+          elif [ -f .env ]; then
+            env_file=".env"
+          fi
+          
+          if [ -z "$env_file" ]; then
+            echo "Không tìm thấy file .env, .env.local hoặc .env.production!"
+            exit 1
+          fi
+          
+          echo "Sử dụng file: $env_file"
+          
+          # Kiểm tra NEXT_PUBLIC_API_BASE_URL (bắt buộc)
+          if ! grep -q "^NEXT_PUBLIC_API_BASE_URL=" "$env_file" 2>/dev/null; then
+            echo "NEXT_PUBLIC_API_BASE_URL không được tìm thấy trong $env_file"
+            echo "   Sẽ sử dụng giá trị mặc định: http://localhost:3001"
+          else
+            value=$(grep "^NEXT_PUBLIC_API_BASE_URL=" "$env_file" | cut -d '=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            if [ -n "$value" ]; then
+              echo "NEXT_PUBLIC_API_BASE_URL: $value"
+            fi
+          fi
+          
+          echo "Kiểm tra biến môi trường hoàn tất"
+
+      - name: Clean previous build
+        run: |
+          echo "Dọn dẹp thư mục build cũ..."
+          if [ -d ".next" ]; then
+            rm -rf .next
+            echo "Đã xóa thư mục .next cũ"
+          fi
+          if [ -d "node_modules/.cache" ]; then
+            rm -rf node_modules/.cache
+            echo "Đã xóa cache cũ"
+          fi
+
+      - name: Install Dependencies
+        run: |
+          echo "Cài đặt dependencies..."
+          npm ci --production=false
+          echo "Dependencies đã được cài đặt"
+
+      - name: Build Next.js Project
+        run: |
+          echo "Build Next.js project..."
+          npm run build
+          
+          if [ ! -d ".next" ]; then
+            echo "Build thất bại: thư mục .next không tồn tại"
+            exit 1
+          fi
+          
+          echo "Build thành công"
+
+      - name: Verify build output
+        run: |
+          echo "Kiểm tra kết quả build..."
+          if [ -d ".next" ]; then
+            echo "Cấu trúc thư mục .next:"
+            ls -la .next/ | head -20
+            echo ""
+            
+            # Kiểm tra các file quan trọng
+            if [ -d ".next/standalone" ]; then
+              echo "Standalone build được tạo"
+            fi
+            
+            if [ -d ".next/static" ]; then
+              echo "Static files được tạo"
+            fi
+            
+            echo "Build output hợp lệ"
+          else
+            echo "Thư mục .next không tồn tại"
+            exit 1
+          fi
+
+      - name: Start/Restart Frontend with PM2
+        run: |
+          echo "Khởi động/restart frontend với PM2..."
+          # Xóa process cũ để đảm bảo cấu hình mới được áp dụng (script args)
+          pm2 delete frontend-client || true
+          # Lấy đường dẫn thư mục project (tương đương với $GITHUB_WORKSPACE)
+          PROJECT_DIR="${{ github.workspace }}"
+          echo "Project directory: $PROJECT_DIR"
+          # Next.js nhận PORT qua biến môi trường từ .env.local, không qua flag -p
+          # Sử dụng --cwd để đảm bảo PM2 chạy từ đúng thư mục project
+          # Sử dụng --update-env để đảm bảo env vars được cập nhật
+          cd "$PROJECT_DIR"
+          PORT=3000 pm2 start npm --name "frontend-client" --cwd "$PROJECT_DIR" --update-env -- start
+          pm2 save
+          echo "Frontend đã được khởi động trên port 3000"
+
+      - name: Wait for server to be ready
+        run: |
+          echo "Đợi server khởi động..."
+          sleep 8
+          
+          port="3000"
+          max_attempts=30
+          attempt=0
+          
+          echo "Kiểm tra server tại port $port..."
+          
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f http://localhost:$port > /dev/null 2>&1; then
+              echo "Server đã sẵn sàng!"
+              exit 0
+            fi
+            attempt=$((attempt + 1))
+            echo "   Thử lại lần $attempt/$max_attempts..."
+            sleep 2
+          done
+          
+          echo "Server chưa phản hồi sau $max_attempts lần thử"
+          echo "Trạng thái PM2:"
+          pm2 status
+          echo "PM2 logs (50 dòng cuối):"
+          pm2 logs frontend-client --lines 50 --nostream
+          exit 1
+
+      - name: Health check
+        run: |
+          echo "Kiểm tra frontend..."
+          
+          port="3000"
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$port || echo "ERROR")
+          
+          if [ "$response" = "ERROR" ] || [ "$response" != "200" ]; then
+            echo "Health check thất bại tại port $port (HTTP $response)"
+            pm2 logs frontend-client --lines 20 --nostream
+            exit 1
+          fi
+          
+          echo "Health check response: HTTP $response"
+          echo ""
+          echo "Frontend đang hoạt động bình thường "
+
+      - name: Show PM2 status
+        run: |
+          echo "Trạng thái PM2:"
+          pm2 status
+          echo ""
+          echo "PM2 info:"
+          pm2 info frontend-client
+
+      - name: Deployment summary
+        run: |
+          # Đọc API URL từ .env
+          env_file=""
+          if [ -f .env.local ]; then
+            env_file=".env.local"
+          elif [ -f .env.production ]; then
+            env_file=".env.production"
+          elif [ -f .env ]; then
+            env_file=".env"
+          fi
+          
+          api_url=""
+          if [ -n "$env_file" ]; then
+            api_url_line=$(grep "^NEXT_PUBLIC_API_BASE_URL=" "$env_file" 2>/dev/null || echo "")
+            if [ -n "$api_url_line" ]; then
+              api_url=$(echo "$api_url_line" | cut -d '=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            fi
+          fi
+          
+          echo ""
+          echo "═══════════════════════════════════════════════════════════"
+          echo "DEPLOYMENT THÀNH CÔNG!"
+          echo "═══════════════════════════════════════════════════════════"
+          echo "Application: frontend-client"
+          echo "Status: Running"
+          echo "Port: 3000"
+          echo "API URL: ${api_url:-'http://localhost:3001'}"
+          echo "Build: .next/"
+          echo "Process Manager: PM2"
+          echo ""
+          echo "Để xem logs: pm2 logs frontend-client"
+          echo "Để restart: pm2 restart frontend-client"
+          echo "Để stop: pm2 stop frontend-client"
+          echo "═══════════════════════════════════════════════════════════"

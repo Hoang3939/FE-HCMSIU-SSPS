@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { FileText, LogOut, Menu, X } from "lucide-react"
+import { FileText, LogOut, Menu, X, KeyRound } from "lucide-react"
 import { useState } from "react"
 import {
   DropdownMenu,
@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal"
 
 interface HeaderProps {
   userRole?: "student" | "spso"
@@ -21,21 +22,23 @@ interface HeaderProps {
 export function Header({ userRole = "student", balance = 50, userName = "Nguyễn Văn A" }: HeaderProps) {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
 
   const studentNav = [
     { href: "/dashboard", label: "Trang chủ" },
     { href: "/upload", label: "Tải lên & In" },
+    { href: "/printers", label: "Máy in" },
     { href: "/history", label: "Lịch sử" },
     { href: "/buy-pages", label: "Mua trang" },
   ]
 
   const spsoNav = [
-    { href: "/spso/dashboard", label: "Trang chủ" },
-    { href: "/spso/history", label: "Lịch sử in" },
-    { href: "/spso/students", label: "Quản lý sinh viên" },
-    { href: "/spso/printers", label: "Quản lý máy in" },
-    { href: "/spso/config", label: "Cấu hình hệ thống" },
-    { href: "/spso/reports", label: "Báo cáo" },
+    { href: "/admin/dashboard", label: "Trang chủ" },
+    { href: "/admin/history", label: "Lịch sử in" },
+    { href: "/admin/students", label: "Quản lý sinh viên" },
+    { href: "/admin/printers", label: "Quản lý máy in" },
+    { href: "/admin/config", label: "Cấu hình hệ thống" },
+    { href: "/admin/reports", label: "Báo cáo" },
   ]
 
   const navItems = userRole === "student" ? studentNav : spsoNav
@@ -44,7 +47,7 @@ export function Header({ userRole = "student", balance = 50, userName = "Nguyễ
     <header className="sticky top-0 z-50 border-b bg-white shadow-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         <div className="flex items-center gap-2">
-          <Link href={userRole === "student" ? "/dashboard" : "/spso/dashboard"} className="flex items-center gap-2">
+          <Link href={userRole === "student" ? "/dashboard" : "/admin/dashboard"} className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black">
               <span className="text-sm font-bold text-white">⊜</span>
             </div>
@@ -85,6 +88,10 @@ export function Header({ userRole = "student", balance = 50, userName = "Nguyễ
                 <div className="text-sm font-medium">{userName}</div>
                 <div className="text-xs text-gray-500">{userRole === "student" ? "Sinh viên" : "SPSO"}</div>
               </div>
+              <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
+                <KeyRound className="mr-2 h-4 w-4" />
+                Đổi mật khẩu
+              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/login" className="flex items-center gap-2">
                   <LogOut className="h-4 w-4" />
@@ -131,6 +138,8 @@ export function Header({ userRole = "student", balance = 50, userName = "Nguyễ
           </nav>
         </div>
       )}
+
+      <ChangePasswordModal open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
     </header>
   )
 }

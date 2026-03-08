@@ -1,12 +1,48 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Header } from "@/components/shared/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileText, Printer, History, CreditCard, TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { getUserBalance } from "@/lib/api"
+import { toast } from "sonner"
+
+// Component to handle toast notification for forbidden error
+function ForbiddenToastHandler() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [hasShownToast, setHasShownToast] = useState(false)
+
+  useEffect(() => {
+    const error = searchParams.get('error')
+    
+    if (error === 'forbidden' && !hasShownToast) {
+      console.log('[Dashboard] Forbidden error detected, showing toast')
+      
+      // Mark as shown to prevent duplicate toasts
+      setHasShownToast(true)
+      
+      // Show toast notification immediately
+      toast.error('Access Denied', {
+        description: 'You do not have permission to access the admin area. Only administrators can access admin pages.',
+        duration: 5000,
+      })
+      
+      // Clean URL by removing query parameter after a delay
+      // This ensures the toast is visible before URL changes
+      const timeoutId = setTimeout(() => {
+        router.replace('/dashboard', { scroll: false })
+      }, 1000) // Delay to ensure toast is fully rendered
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [searchParams, router, hasShownToast])
+
+  return null
+}
 
 export default function StudentDashboard() {
   const [balance, setBalance] = useState(0)
@@ -29,6 +65,9 @@ export default function StudentDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Suspense fallback={null}>
+        <ForbiddenToastHandler />
+      </Suspense>
       <Header userRole="student" balance={balance} userName="Nguyễn Văn A" />
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
